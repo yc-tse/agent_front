@@ -1,0 +1,60 @@
+{
+  "objective": "Perform a multi-thematic, entity-driven review across Ayvens UK legal entities, focusing on asset risk, human resources, compliance (including financial crime, data protection, client protection), and culture & conduct, as part of the scheduled audit cycle.",
+  "thematic_axes": [
+    {
+      "title": "Asset Risk / Operating Leasing Activities",
+      "points": [
+        "Risk related to operating leasing activities (residual value, credit risk interaction, asset management, repossession, remarketing).",
+        "Errors in operating processes (contract setup, billing, collections, asset lifecycle)."
+      ]
+    },
+    {
+      "title": "Human Resources",
+      "points": [
+        "Employment law and employer obligations (contracts, working time, disciplinary procedures, equality, diversity & inclusion).",
+        "HR management: compensation & benefits, careers, payroll, skills management, social relations (unions, employee representatives).",
+        "Staff and skills adequacy (capacity, competence, training, succession planning)."
+      ]
+    },
+    {
+      "title": "Compliance & Financial Crime",
+      "points": [
+        "AML/CTF, KYC, sanctions/embargoes (A22.01.x).",
+        "Other regulatory compliance: client & investor protection, data protection (GDPR), ethics & anti-corruption.",
+        "Governance of the compliance function within the Ayvens UK perimeter."
+      ]
+    },
+    {
+      "title": "Culture & Conduct",
+      "points": [
+        "Ethics & conduct risk, anti-bribery & corruption.",
+        "Incentive structures, performance management, and their alignment with risk appetite.",
+        "Speak-up mechanisms, disciplinary actions, and management response to misconduct."
+      ]
+    }
+  ],
+  "risk_landscape": [
+    "Multiple risk families are relevant: financial crime, data protection, competition law, sustainability, HR/legal, operational process errors, ethics & conduct, staff adequacy, business & strategy risks.",
+    "No structured operational loss data surfaced in pre-mission tools.",
+    "Request local incident logs, complaints, HR case statistics, compliance alerts.",
+    "Use interviews and walkthroughs to identify non-quantified or emerging risks."
+  ],
+  "methodology_stance": [
+    "No mission-specific 'methodo' is registered; apply standard internal audit methodology.",
+    "Risk-based scoping within the defined entity perimeter.",
+    "Process mapping for key activities (rentals, entity management, HR, compliance).",
+    "Control design and operating effectiveness testing.",
+    "Sampling of client files, HR files, compliance cases, and asset files.",
+    "Culture & conduct assessment via qualitative techniques (interviews, surveys, document review)."
+  ],
+  "historical_context": [
+    "No previous recommendations identified for this exact combined scope.",
+    "Treat this mission as a baseline review: document the current control environment and cultural posture.",
+    "Generate initial recommendations that can be tracked in future cycles."
+  ],
+  "open_questions": [
+    "Which UK entities share a single HR and compliance function, and which operate standalone?",
+    "Is there a local incident log outside the group operational-loss database?",
+    "Who owns residual-value setting and remarketing decisions across the eight entities?"
+  ]
+}

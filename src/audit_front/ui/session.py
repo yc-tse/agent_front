@@ -11,9 +11,10 @@ from typing import Any
 
 import streamlit as st
 
-from ..client import AuditAgentClient, HealthReport, build_client
+from ..api import BackendAPI, HealthReport
 from ..config import Settings, get_settings
-from ..pipeline import STAGE_KEYS
+from ..pipeline import STAGE_KEYS, StageSpec
+from ..routing import build_backend, resolve_live_stages
 from ..state import MissionSession
 
 _SESSION = "af_session"
@@ -47,13 +48,13 @@ def effective_settings() -> Settings:
 
 
 @st.cache_resource(show_spinner=False)
-def _cached_client(_settings: Settings, cache_key: str) -> AuditAgentClient:
+def _cached_client(_settings: Settings, cache_key: str) -> BackendAPI:
     # `_settings` is excluded from the cache key by Streamlit's underscore
     # convention; `cache_key` carries the fields that actually matter.
-    return build_client(_settings)
+    return build_backend(_settings)
 
 
-def get_client(settings: Settings | None = None) -> AuditAgentClient:
+def get_client(settings: Settings | None = None) -> BackendAPI:
     settings = settings or effective_settings()
     cache_key = "|".join(
         [
@@ -64,9 +65,50 @@ def get_client(settings: Settings | None = None) -> AuditAgentClient:
             "token" if settings.token else "no-token",
             str(settings.timeout_s),
             str(settings.verify_ssl),
+            ",".join(sorted(resolve_live_stages(settings))),
         ]
     )
     return _cached_client(settings, cache_key)
+
+
+def stage_sources(settings: Settings | None = None) -> dict[str, str]:
+    """Stage key -> ``"live"`` or ``"example"``, for the Connection panel.
+
+    Read from configuration rather than from the built client, so it is
+    correct before the first call is made.
+    """
+    settings = settings or effective_settings()
+    live = resolve_live_stages(settings)
+    return {key: ("live" if key in live else "example") for key in STAGE_KEYS}
+
+
+def source_of_stage(spec: StageSpec, settings: Settings | None = None) -> str:
+    return stage_sources(settings)[spec.key]
+
+
+def describe_wiring(settings: Settings | None = None) -> str:
+    """A short phrase for the audit trail and the export header.
+
+    Says plainly when a session mixed sources, because a briefing built partly
+    from example data must never read as a fully live one.
+    """
+    settings = settings or effective_settings()
+    live = resolve_live_stages(settings)
+    if not live:
+        return "example data"
+    if live == frozenset(STAGE_KEYS):
+        return "live"
+    names = ", ".join(sorted(live))
+    return f"mixed ({len(live)}/{len(STAGE_KEYS)} live: {names})"
+
+
+def set_stage_live(stage_key: str, live: bool) -> None:
+    """Route one stage to the live backend, or back to example data."""
+    current = dict(stage_sources())
+    current[stage_key] = "live" if live else "example"
+    set_override(
+        "live_stages", tuple(key for key, source in current.items() if source == "live")
+    )
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -78,7 +120,10 @@ def _cached_health(cache_key: str) -> tuple[bool, str, float | None, str | None]
 def check_health(*, force: bool = False) -> HealthReport:
     """Backend reachability, cached briefly so the sidebar is not a load test."""
     settings = effective_settings()
-    cache_key = f"{settings.backend_mode}|{settings.base_url}"
+    cache_key = (
+        f"{settings.backend_mode}|{settings.base_url}|"
+        f"{','.join(sorted(resolve_live_stages(settings)))}"
+    )
     if force:
         _cached_health.clear()
     ok, detail, latency, version = _cached_health(cache_key)
@@ -106,7 +151,7 @@ def start_session(mission_id: str) -> MissionSession:
     session = MissionSession(
         mission_id=mission_id.strip(),
         analyst=settings.analyst,
-        backend_mode="mock" if settings.is_mock else "live",
+        backend_mode=describe_wiring(settings),
     )
     session.record(
         "session_started",

@@ -278,6 +278,8 @@ def stage_markdown(run: StageRun) -> str:
 
 def _status_note(run: StageRun) -> str:
     bits = [run.status.label]
+    if run.source:
+        bits.append("live backend" if run.source == "live" else "example data")
     if run.edited:
         bits.append("edited by analyst")
     if run.stale:
@@ -304,15 +306,35 @@ def session_to_markdown(session: MissionSession, *, include_all_stages: bool = T
         "",
     ]
 
-    if session.stale_stages:
-        stale = ", ".join(get_stage(k).title for k in session.stale_stages)
+    stages = STAGES if include_all_stages else tuple(s for s in STAGES if s.key == "briefing")
+    included = {spec.key for spec in stages}
+
+    # Banners name only what this export actually contains — a briefing-only
+    # pack that warned about stages it does not include would be noise.
+    example = [k for k in session.example_data_stages if k in included]
+    if example:
+        # A pack that mixes live and example data must say so on its first page,
+        # not only in the appendix — it is otherwise indistinguishable.
+        subject = (
+            "Every section of this pack was"
+            if len(example) == len(included)
+            else f"These sections were: {', '.join(get_stage(k).title for k in example)} —"
+        )
         lines += [
-            f"> ⚠️ **Stale stages at export time:** {stale}. An upstream stage was changed "
+            f"> 🧪 **Not from the live backend.** {subject} served from bundled example "
+            "data, and must not be relied on as findings.",
+            "",
+        ]
+
+    stale = [k for k in session.stale_stages if k in included]
+    if stale:
+        names = ", ".join(get_stage(k).title for k in stale)
+        lines += [
+            f"> ⚠️ **Stale stages at export time:** {names}. An upstream stage was changed "
             "after these ran; re-run them before relying on this pack.",
             "",
         ]
 
-    stages = STAGES if include_all_stages else tuple(s for s in STAGES if s.key == "briefing")
     for spec in stages:
         run = session.stage(spec.key)
         lines += [

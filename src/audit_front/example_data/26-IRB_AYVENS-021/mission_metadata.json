@@ -1,0 +1,46 @@
+{
+  "mission_id": "26-IRB/AYVENS-021",
+  "mission_name": "2026_Ayvens Germany - Remarketing & Residual Value Management",
+  "brief_scope": "Thematic review of the remarketing chain and residual-value governance following the 2025 used-car price correction.",
+  "main_business_line": "AVNS/DE/IBFS/ALDA/LPDE/DEU/FIN",
+  "countries": [
+    "GERMANY"
+  ],
+  "entities": [
+    "ALD AUTOMOTIVE GMBH",
+    "LEASEPLAN DEUTSCHLAND GMBH",
+    "AYVENS REMARKETING GMBH"
+  ],
+  "risk_families": [
+    "Risks related to operating leasing activities",
+    "Errors in operating processes",
+    "Business & Strategy risks",
+    "Data protection",
+    "Sustainability risks"
+  ],
+  "activities": [
+    {
+      "code": "A03.03.03",
+      "label": "Rentals with/without Purchase Option"
+    },
+    {
+      "code": "A04",
+      "label": "Asset lifecycle",
+      "children": [
+        {
+          "code": "A04.02",
+          "label": "Residual value setting"
+        },
+        {
+          "code": "A04.05",
+          "label": "Remarketing & disposal"
+        }
+      ]
+    }
+  ],
+  "business_lines": [
+    "AVNS/DE/IBFS/ALDA/LPDE/DEU/FIN",
+    "AVNS/DE/IBFS/ALDA/LPDE/DEU/REMKT"
+  ],
+  "audit_cycle": "2026 — thematic"
+}

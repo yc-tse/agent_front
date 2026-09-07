@@ -213,15 +213,86 @@ upstream that is worth finding at source.
 
 ---
 
-## 6. If the real API differs
+## 6. Where to connect each API
 
-- **Different routes** → change the three path templates in configuration.
-- **Different envelope or auth flow** → `client.py`, `unwrap_payload` and
-  `HttpAuditAgentClient.run_stage`. Nothing else in the app talks HTTP.
+`src/audit_front/api.py` defines the integration surface: **one method per
+backend sub-component**. Connecting an endpoint is editing one method, not
+threading a condition through shared code.
+
+| Stage | Method | Lives in |
+|---|---|---|
+| 1. Mission metadata | `fetch_mission_metadata` | `client.py` (live) / `example_backend.py` |
+| 2. Mission scope understanding | `analyse_mission_scope` | ” |
+| 3. Operational risk events in scope | `fetch_risk_events` | ” |
+| 4. Methodology references | `fetch_methodology` | ” |
+| 5. Historical recommendations | `fetch_historical_recommendations` | ” |
+| 6. Consolidated pre-mission briefing | `build_briefing` | ” |
+
+Each live method today posts to the generic templated endpoint and carries a
+marked block showing what to replace:
+
+```python
+def fetch_risk_events(self, request: StageRequest) -> StageResponse:
+    # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+    # e.g. a query against the loss database:
+    #     return self.post_json(
+    #         "/api/v1/losses/search",
+    #         {"entities": request.entity_filter, "mission": request.mission_id},
+    #     )
+    return self.post_stage(request)
+```
+
+Three helpers cover the common shapes, all returning a normalised
+`StageResponse` so the UI is unaffected by which one a stage uses:
+
+- `post_stage(request)` — the generic templated POST (current default)
+- `get_json(path_template, **params)` — GET a REST-style resource
+- `post_json(path_template, body, **params)` — POST a bespoke body
+
+`request` is a `StageRequest`, with accessors so implementations never dig
+through raw dicts: `request.metadata`, `request.scope`, `request.entity_filter`
+(the perimeter *as the analyst approved it*), `request.upstream(stage_key)`,
+`request.feedback`, and `request.to_json()` for the standard body.
+
+### Switching stages over one at a time
+
+The six APIs will not ship together. `AUDIT_LIVE_STAGES` names the stages that
+call the real backend; everything else keeps serving example data:
+
+```
+AUDIT_LIVE_STAGES=mission_metadata,scope_understanding
+```
+
+`all`, `none`, and an empty value (follow `AUDIT_BACKEND_MODE`) are also
+accepted. The sidebar's **Connection** panel does the same thing at runtime,
+so an endpoint can be tried without a restart.
+
+Mixed sessions are labelled everywhere it matters — a chip on the stage
+header, a line per stage in the Markdown export, a `source` field per stage in
+the JSON export, and a banner naming any section that came from example data.
+A pack built partly from example data must never read as a fully live one.
+
+### Checking a new endpoint's shape before wiring it
+
+Save a real response as `src/audit_front/example_data/<mission>/<stage>.json`
+and the UI renders it immediately — no code, no redeploy. That is the quickest
+way to see whether a payload fits the models in section 4, and it doubles as a
+regression fixture afterwards.
+
+---
+
+## 7. If the real API differs
+
+- **Different routes** → change the three path templates in configuration, or
+  the single method for the one stage that differs (section 6).
+- **Different envelope or auth flow** → `client.py`: `unwrap_payload` and
+  `HttpBackendAPI._send`. Nothing else in the app talks HTTP.
 - **Different field names** → add an entry to the relevant model's
   `key_aliases` in `models.py` (one line, keyed on the normalised spelling).
 - **A new field you want rendered** → add it to the model and to that stage's
   module in `ui/stages/`. Until then it still shows under *Additional backend
   fields*, so nothing is silently dropped.
-- **A seventh stage** → one `StageSpec` in `pipeline.py` plus a renderer.
-  Order, dependencies, navigation, exports and staleness all derive from it.
+- **A seventh stage** → one `StageSpec` in `pipeline.py` (including its
+  `api_method`), a matching method on `BackendAPI` and its two implementations,
+  and a renderer. Order, dependencies, navigation, exports and staleness all
+  derive from that entry.

@@ -8,8 +8,9 @@ output is a pre-mission briefing pack plus a record of exactly what the agent
 produced and what the human changed.
 
 The backend is not in this repository (internal policy). This app talks to it
-over HTTP, and ships with a **mock backend** so it runs, demos and develops
-without one.
+through a **named method per backend API** (see *Connecting the real backend*),
+each currently served by bundled **example data** — so it runs, demos and
+develops today, and each endpoint gets connected the day it ships.
 
 ---
 
@@ -30,8 +31,8 @@ Or, on Windows:
 .\run.ps1
 ```
 
-It opens at <http://localhost:8501> in **mock mode** — pick one of the two
-bundled sample missions in the sidebar and walk the pipeline.
+It opens at <http://localhost:8501> serving **example data** — pick one of the
+two bundled sample missions in the sidebar and walk the pipeline.
 
 To point it at the real backend:
 
@@ -67,7 +68,7 @@ Three properties make the review real rather than decorative:
 
 1. **The analyst's version is what flows downstream.** Narrow the entity
    filter in stage 2 and stage 3 is *called* with the narrowed filter. The
-   mock backend honours this too, so the behaviour is demonstrable offline.
+   example backend honours this too, so it is demonstrable offline.
 
 2. **Agent output and analyst output are stored separately.** An edit never
    overwrites `ai_payload`; it writes `analyst_payload`. The export can always
@@ -102,8 +103,50 @@ applied (`scripts/make_example_export.py` regenerates it).
 
 ## Connecting the real backend
 
-Endpoints are templates in configuration, so a different routing scheme needs
-no code change:
+`src/audit_front/api.py` is the integration surface: **one method per backend
+sub-component**, so each endpoint is connected independently.
+
+| Stage | Method |
+|---|---|
+| 1. Mission metadata | `fetch_mission_metadata` |
+| 2. Mission scope understanding | `analyse_mission_scope` |
+| 3. Operational risk events in scope | `fetch_risk_events` |
+| 4. Methodology references | `fetch_methodology` |
+| 5. Historical recommendations | `fetch_historical_recommendations` |
+| 6. Consolidated pre-mission briefing | `build_briefing` |
+
+Two implementations ship: `HttpBackendAPI` (`client.py`) and `ExampleDataAPI`
+(`example_backend.py`). Every live method currently posts to one templated
+endpoint and carries a marked block showing exactly what to replace:
+
+```python
+def fetch_risk_events(self, request: StageRequest) -> StageResponse:
+    # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+    #     return self.post_json(
+    #         "/api/v1/losses/search",
+    #         {"entities": request.entity_filter, "mission": request.mission_id},
+    #     )
+    return self.post_stage(request)
+```
+
+**The six APIs can go live one at a time.** Name the ones that are ready and
+the rest keep serving example data:
+
+```
+AUDIT_LIVE_STAGES=mission_metadata,scope_understanding
+```
+
+The sidebar's **Connection** panel does the same at runtime, so a new endpoint
+can be tried without a restart. Mixed sessions are labelled throughout — a chip
+on the stage header, a line per stage in the Markdown export, a `source` field
+in the JSON, and a banner naming any section that came from example data.
+
+To check a payload's shape before writing any code, save a real response as
+`src/audit_front/example_data/<mission>/<stage>.json` — the UI renders it
+immediately, and it becomes a regression fixture afterwards.
+
+Endpoints are configuration templates, so a different routing scheme needs no
+code change at all:
 
 ```
 AUDIT_API_STAGE_PATH=/api/v1/missions/{mission_id}/stages/{stage}
@@ -111,14 +154,9 @@ AUDIT_API_HEALTH_PATH=/health
 AUDIT_API_JOB_PATH=/api/v1/jobs/{job_id}
 ```
 
-The client posts a small JSON body per stage and accepts several response
-shapes (`{"data": …}`, `{"result": …}`, a bare payload, or an async job handle
-it polls). See **[docs/backend-contract.md](docs/backend-contract.md)** for
-the full contract, the accepted key spellings, and what to change if the real
-API differs.
-
-If it differs beyond what the adapter absorbs, `HttpAuditAgentClient.run_stage`
-is the single method to rewrite — nothing else in the app talks HTTP.
+See **[docs/backend-contract.md](docs/backend-contract.md)** for the full
+contract, the accepted key spellings, and what to change if the real API
+differs.
 
 ---
 
@@ -127,18 +165,21 @@ is the single method to rewrite — nothing else in the app talks HTTP.
 ```
 app.py                     Streamlit entry point
 src/audit_front/
+  api.py                   ★ the integration surface: one method per backend API
+  client.py                Live implementation — HTTP, envelopes, job polling
+  example_backend.py       Example implementation — serves the JSON below
+  example_data/            One folder per mission, one JSON file per stage
+  routing.py               Which stages are live, which are on example data
   config.py                Settings from Streamlit secrets / env / .env
   models.py                Tolerant pydantic views over backend payloads
   pipeline.py              The six stages: order, dependencies, purpose
   state.py                 Session, stage runs, audit trail  (no Streamlit)
   runner.py                Stage orchestration               (no Streamlit)
   diffing.py               "Did the analyst actually change anything?"
-  client.py                HTTP adapter: envelopes, retries, job polling
-  mock_backend.py          Two bundled sample missions
   exporters.py             Markdown and JSON exports
   ui/                      Streamlit layer only
     stages/                One module per stage, plus the shared frame
-tests/                     148 tests, no network, no browser
+tests/                     216 tests, no network, no browser
 docs/backend-contract.md   What this app expects from the backend
 docs/example-export.md     A worked example of the deliverable
 scripts/                   Regenerates the example export
@@ -152,7 +193,7 @@ behaviour is testable without a UI.
 ## Development
 
 ```bash
-.venv/Scripts/python -m pytest          # 148 tests, ~11s
+.venv/Scripts/python -m pytest          # 216 tests, ~10s
 .venv/Scripts/python -m ruff check .    # line-length 100, target py311
 ```
 

@@ -53,9 +53,23 @@ dependencies, which model parses each payload, and the sentence shown to the
 analyst at each checkpoint. The UI, client, runner and exporter all read from
 it, so adding or renaming a stage is a one-line change plus a renderer.
 
+The backend is reached through **one named method per sub-component**, declared
+on each `StageSpec` as `api_method` and dispatched by `BackendAPI.run_stage`:
+
+| Stage | Method |
+|---|---|
+| `mission_metadata` | `fetch_mission_metadata` |
+| `scope_understanding` | `analyse_mission_scope` |
+| `risk_events` | `fetch_risk_events` |
+| `methodology` | `fetch_methodology` |
+| `historical_recommendations` | `fetch_historical_recommendations` |
+| `briefing` | `build_briefing` |
+
 Read the modules in this order:
 
 - **`pipeline.py`** — the six `StageSpec`s. Start here.
+- **`api.py`** — the integration surface: `BackendAPI`, `StageRequest`,
+  `StageResponse`, `BackendError`. Read before touching anything backend-facing.
 - **`models.py`** — deliberately *tolerant* pydantic views. Every field
   optional, `extra="allow"`, and incoming keys normalised so `MissionName`,
   `missionName`, `mission_name` and `"Mission ID"` all land on the same field.
@@ -69,10 +83,15 @@ Read the modules in this order:
   becomes an ERROR state carrying a message the analyst can act on.
 - **`diffing.py`** — "did the analyst actually change anything?" Harder than
   `before != after`; see the module docstring for why.
-- **`client.py`** — the only module that talks HTTP. Envelope unwrapping,
-  retries, async job polling.
-- **`mock_backend.py`** — two sample missions. Not decoration: it honours
-  `context`, so a scope edited in stage 2 really does change stages 3–6.
+- **`client.py`** — the only module that talks HTTP. Each of the six methods is
+  a seam carrying a `── CONNECT THE REAL ENDPOINT HERE ──` block; all six
+  currently share `post_stage()`. Also envelope unwrapping, retries, job polling.
+- **`example_backend.py`** — serves `example_data/<mission>/<stage>.json`. Not
+  decoration: it honours `request.context`, so a scope edited in stage 2 really
+  does change stages 3–6. Dropping a captured backend response into that folder
+  renders it immediately, which is the fastest way to check a new payload shape.
+- **`routing.py`** — per-stage live/example selection (`AUDIT_LIVE_STAGES`), so
+  the six APIs can be switched over one at a time.
 - **`ui/`** — Streamlit only. `ui/stages/__init__.py` holds the frame every
   stage shares; each stage module renders content plus editors and **returns
   the draft payload**.
@@ -92,6 +111,10 @@ UI. Keep it that way.
   fieldwork; never hide the section.
 - **Never silently drop backend data.** Unmodelled fields surface through
   `unmodelled_fields()`; the raw payload is always one expander away.
+- **Never let example data pass for live data.** `StageResponse.source` is
+  stamped by `run_stage` and carried to `StageRun.source`, the stage header
+  chip, both exports and the audit trail. A pack that mixes the two says so on
+  its first page.
 - **Every state transition goes through a `MissionSession` method** so it
   lands in the audit trail. Don't mutate `StageRun` fields directly from the
   UI.
@@ -103,6 +126,11 @@ Streamlit's `AppTest` — both sample missions × all six stages, unapproved and
 failed states, empty and unrecognised payloads. It catches what unit tests
 can't: an invalid `icon=` emoji, a widget key collision, a renderer assuming a
 field exists. Run it after any UI change.
+
+`tests/test_api_surface.py` guards the integration seams: every `api_method`
+resolves to an abstract method that all implementations provide, `run_stage`
+dispatches to the right one, and the router sends each stage to its configured
+backend. Add a case there when you add a stage or an implementation.
 
 `tests/test_diffing.py` guards a real bug: the editors rebuild the payload on
 every render, so a naive comparison flagged "unsaved changes" before anyone

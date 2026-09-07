@@ -8,7 +8,7 @@ stage loaded — which trains analysts to ignore the warning that matters.
 from __future__ import annotations
 
 from audit_front.diffing import canonical, change_summary, changed_fields, has_changes
-from audit_front.mock_backend import AYVENS_UK, MockAuditAgentClient
+from audit_front.example_backend import AYVENS_UK, ExampleDataAPI
 from audit_front.pipeline import get_stage
 
 SCOPE = get_stage("scope_understanding")
@@ -33,7 +33,7 @@ class TestNoFalsePositives:
         assert has_changes(SCOPE, payload, draft) is False
 
     def test_a_freshly_loaded_backend_payload_reports_no_change(self):
-        client = MockAuditAgentClient(latency=False)
+        client = ExampleDataAPI(latency=False)
         payload = client.run_stage(SCOPE, AYVENS_UK, {}).payload
         draft = {
             **payload,

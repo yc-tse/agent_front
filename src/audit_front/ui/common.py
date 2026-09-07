@@ -176,6 +176,20 @@ def section(title: str, *, help_text: str | None = None) -> None:
         st.caption(help_text)
 
 
+def source_chip(source: str | None) -> str:
+    """Chip naming which backend answered — live, or bundled example data."""
+    if source == "example":
+        return (
+            '<span class="af-chip" style="color:#6A3FB5;background:#F3EEFC;">'
+            "example data</span>"
+        )
+    if source == "live":
+        return (
+            '<span class="af-chip" style="color:#1E8E3E;background:#1E8E3E14;">live backend</span>'
+        )
+    return ""
+
+
 def meta_line(run: StageRun) -> None:
     """Timing / provenance strip under a stage header."""
     parts: list[str] = []

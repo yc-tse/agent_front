@@ -1,30 +1,35 @@
-"""HTTP client for the mission-preparation backend.
+"""The live backend: HTTP implementation of the six APIs.
 
-The backend is not in this repository, so this module is written as an
-*adapter*, not as a hard contract. Three things absorb the difference between
-the assumed API and the real one:
+Each of the six methods below is a **placeholder wired to a sensible default**.
+Today they all post to one templated endpoint (`AUDIT_API_STAGE_PATH`, with
+`{stage}` substituted), which is what the assumed contract in
+`docs/backend-contract.md` describes. When a real endpoint turns out to have a
+different shape, you change *that one method* — the marked block inside it —
+and nothing else moves.
 
-1. **Endpoint templates live in config** (``AUDIT_API_STAGE_PATH`` etc.), so a
-   different routing scheme needs no code change.
-2. **Response envelopes are unwrapped heuristically** — ``{"data": {...}}``,
-   ``{"result": {...}}`` and a bare payload are all accepted.
-3. **Async jobs are detected and polled** — if a stage returns a job handle
-   instead of a payload, the client waits it out.
+Three helpers exist for exactly that edit:
 
-If the real API differs beyond that, :meth:`HttpAuditAgentClient.run_stage`
-is the one method to rewrite; nothing else in the app talks HTTP.
+* :meth:`HttpBackendAPI.post_stage` — the generic templated POST (current default)
+* :meth:`HttpBackendAPI.get_json` — GET any path, e.g. a REST-style resource
+* :meth:`HttpBackendAPI.post_json` — POST any path with any body
+
+All three return a normalised :class:`~audit_front.api.StageResponse`, so the
+UI is unaffected by which one a stage uses.
+
+The envelope handling is deliberately forgiving: `{"data": …}`, `{"result": …}`,
+a bare payload and an async job handle are all accepted, because the exact
+response shape is not settled yet.
 """
 
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any
 
 import httpx
 
+from .api import BackendAPI, BackendError, HealthReport, StageRequest, StageResponse
 from .config import Settings
-from .pipeline import StageSpec
 
 # Envelope keys that wrap the real payload, in priority order.
 _PAYLOAD_KEYS = ("data", "result", "payload", "output", "content")
@@ -32,76 +37,6 @@ _JOB_ID_KEYS = ("job_id", "jobId", "task_id", "taskId", "id")
 _TRACE_KEYS = ("trace_id", "traceId", "request_id", "requestId", "correlation_id")
 _PENDING_STATES = {"pending", "queued", "running", "in_progress", "processing", "accepted"}
 _FAILED_STATES = {"failed", "error", "cancelled", "canceled", "timeout"}
-
-
-class BackendError(RuntimeError):
-    """Any failure to obtain a usable stage payload.
-
-    Carries enough context for the UI to show something an analyst can act on
-    (and quote in a ticket) rather than a bare stack trace.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        status_code: int | None = None,
-        detail: str | None = None,
-        trace_id: str | None = None,
-        url: str | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.message = message
-        self.status_code = status_code
-        self.detail = detail
-        self.trace_id = trace_id
-        self.url = url
-
-    def __str__(self) -> str:
-        parts = [self.message]
-        if self.status_code:
-            parts.append(f"HTTP {self.status_code}")
-        if self.detail:
-            parts.append(self.detail)
-        if self.trace_id:
-            parts.append(f"trace {self.trace_id}")
-        return " · ".join(parts)
-
-
-@dataclass
-class StageResponse:
-    """Normalised result of one stage call."""
-
-    payload: dict[str, Any]
-    warnings: list[str] = field(default_factory=list)
-    trace_id: str | None = None
-    raw: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class HealthReport:
-    ok: bool
-    detail: str
-    latency_ms: float | None = None
-    version: str | None = None
-
-
-class AuditAgentClient(Protocol):
-    """What the UI needs from a backend — implemented by HTTP and mock clients."""
-
-    label: str
-
-    def health(self) -> HealthReport: ...
-
-    def run_stage(
-        self,
-        stage: StageSpec,
-        mission_id: str,
-        context: dict[str, Any],
-        *,
-        feedback: str | None = None,
-        overrides: dict[str, Any] | None = None,
-    ) -> StageResponse: ...
 
 
 # ---------------------------------------------------------------------------
@@ -173,40 +108,12 @@ def _job_handle(body: Any) -> str | None:
     return str(job_id) if job_id else None
 
 
-def build_request_body(
-    stage: StageSpec,
-    mission_id: str,
-    context: dict[str, Any],
-    *,
-    feedback: str | None = None,
-    overrides: dict[str, Any] | None = None,
-    analyst: str = "unknown",
-) -> dict[str, Any]:
-    """The JSON body sent for every stage call.
-
-    ``context`` carries the *analyst-validated* payloads of upstream stages,
-    which is what makes the human-in-the-loop real: edits made in the UI reach
-    the backend as the input for the next stage, not just as display state.
-    """
-    body: dict[str, Any] = {
-        "mission_id": mission_id,
-        "stage": stage.key,
-        "context": context,
-        "requested_by": analyst,
-    }
-    if feedback:
-        body["analyst_feedback"] = feedback
-    if overrides:
-        body["overrides"] = overrides
-    return body
-
-
 # ---------------------------------------------------------------------------
 # HTTP implementation
 # ---------------------------------------------------------------------------
 
 
-class HttpAuditAgentClient:
+class HttpBackendAPI(BackendAPI):
     """Talks to the real backend over HTTP."""
 
     label = "live"
@@ -220,7 +127,153 @@ class HttpAuditAgentClient:
             follow_redirects=True,
         )
 
-    # -- public API --------------------------------------------------------
+    # =====================================================================
+    # The six backend APIs
+    #
+    # Each is a seam. Replace the body of the one whose endpoint you know;
+    # leave the others on the generic default until their turn comes.
+    # =====================================================================
+
+    def fetch_mission_metadata(self, request: StageRequest) -> StageResponse:
+        """Stage 1 — mission identity from the audit tooling.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="mission_metadata"
+
+        Runs from the mission code alone, so this is the likeliest of the six
+        to be a plain resource read on the real backend.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        # e.g. a REST-style read:
+        #     return self.get_json("/api/v1/missions/{mission_id}",
+        #                          mission_id=request.mission_id)
+        return self.post_stage(request)
+
+    def analyse_mission_scope(self, request: StageRequest) -> StageResponse:
+        """Stage 2 — the perimeter filter set, derived from the metadata.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="scope_understanding"
+
+        The request body carries the analyst-approved metadata under
+        ``context.mission_metadata``; if the real endpoint wants it flattened,
+        reshape it here.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        # e.g. a bespoke body:
+        #     return self.post_json(
+        #         "/api/v1/scope",
+        #         {"mission": request.mission_id, "metadata": request.metadata},
+        #     )
+        return self.post_stage(request)
+
+    def fetch_risk_events(self, request: StageRequest) -> StageResponse:
+        """Stage 3 — operational-loss events on the validated perimeter.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="risk_events"
+
+        If the loss database is queried by entity list, ``request.entity_filter``
+        is the validated perimeter, already reflecting any analyst edit.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        # e.g. a query against the loss database:
+        #     return self.post_json(
+        #         "/api/v1/losses/search",
+        #         {"entities": request.entity_filter, "mission": request.mission_id},
+        #     )
+        return self.post_stage(request)
+
+    def fetch_methodology(self, request: StageRequest) -> StageResponse:
+        """Stage 4 — registered methodology matching this scope.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="methodology"
+
+        "Nothing registered" must come back as a payload, not a 404 — the UI
+        presents it as a finding. If the real endpoint 404s on no-match, catch
+        it here and return an empty payload instead.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        # e.g. tolerating a 404 as "none registered":
+        #     try:
+        #         return self.get_json("/api/v1/methodo", mission_id=request.mission_id)
+        #     except BackendError as exc:
+        #         if exc.status_code == 404:
+        #             return self.empty_response(found=False)
+        #         raise
+        return self.post_stage(request)
+
+    def fetch_historical_recommendations(self, request: StageRequest) -> StageResponse:
+        """Stage 5 — recommendations raised on this perimeter in earlier cycles.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="historical_recommendations"
+
+        Same caveat as stage 4: an empty result is normal and must arrive as a
+        payload.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        return self.post_stage(request)
+
+    def build_briefing(self, request: StageRequest) -> StageResponse:
+        """Stage 6 — synthesis of every validated stage.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="briefing"
+
+        The body carries all five upstream payloads *as the analyst approved
+        them*, which is what makes the briefing reflect human review rather
+        than the agent's first draft. Keep that if you reshape the request.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        # This stage is the likeliest to be long-running; if it returns a job
+        # handle, `post_stage` already polls it to completion.
+        return self.post_stage(request)
+
+    # =====================================================================
+    # Helpers for the edits above
+    # =====================================================================
+
+    def post_stage(self, request: StageRequest) -> StageResponse:
+        """POST the generic stage endpoint — the default every method uses.
+
+        ``AUDIT_API_STAGE_PATH`` with ``{mission_id}`` and ``{stage}``
+        substituted, and :meth:`StageRequest.to_json` as the body.
+        """
+        url = self.settings.url_for(
+            self.settings.stage_path,
+            mission_id=request.mission_id,
+            stage=request.stage_key,
+        )
+        return self._send("POST", url, json=request.to_json())
+
+    def get_json(self, path_template: str, **params: str) -> StageResponse:
+        """GET an arbitrary path and normalise the response.
+
+        ``path_template`` is formatted with ``params``, e.g.
+        ``get_json("/api/v1/missions/{mission_id}", mission_id=...)``.
+        """
+        return self._send("GET", self.settings.url_for(path_template, **params))
+
+    def post_json(
+        self, path_template: str, body: dict[str, Any], **params: str
+    ) -> StageResponse:
+        """POST an arbitrary body to an arbitrary path and normalise the response."""
+        return self._send("POST", self.settings.url_for(path_template, **params), json=body)
+
+    @staticmethod
+    def empty_response(**payload: Any) -> StageResponse:
+        """A well-formed empty result, for endpoints that signal 'none' with a 404."""
+        return StageResponse(payload=dict(payload), raw={"status": "completed", "data": payload})
+
+    # -- transport ---------------------------------------------------------
 
     def health(self) -> HealthReport:
         url = self.settings.url_for(self.settings.health_path)
@@ -243,27 +296,12 @@ class HttpAuditAgentClient:
             pass
         return HealthReport(ok=True, detail="Reachable", latency_ms=latency, version=version)
 
-    def run_stage(
-        self,
-        stage: StageSpec,
-        mission_id: str,
-        context: dict[str, Any],
-        *,
-        feedback: str | None = None,
-        overrides: dict[str, Any] | None = None,
-    ) -> StageResponse:
-        url = self.settings.url_for(
-            self.settings.stage_path, mission_id=mission_id, stage=stage.key
-        )
-        body = build_request_body(
-            stage,
-            mission_id,
-            context,
-            feedback=feedback,
-            overrides=overrides,
-            analyst=self.settings.analyst,
-        )
-        response = self._request("POST", url, json=body)
+    def close(self) -> None:
+        self._client.close()
+
+    def _send(self, method: str, url: str, **kwargs: Any) -> StageResponse:
+        """Request, await any job, and normalise — shared by all three helpers."""
+        response = self._request(method, url, **kwargs)
         parsed = self._json(response, url)
 
         job_id = _job_handle(parsed)
@@ -277,11 +315,6 @@ class HttpAuditAgentClient:
             trace_id=extract_trace_id(parsed, response.headers),
             raw=parsed if isinstance(parsed, dict) else {"body": parsed},
         )
-
-    def close(self) -> None:
-        self._client.close()
-
-    # -- internals ---------------------------------------------------------
 
     def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """One request with retries on transport errors and transient statuses."""
@@ -377,12 +410,3 @@ def _status_message(status_code: int) -> str:
         404: "Mission or stage not found on the backend",
         422: "The backend could not process the request payload",
     }.get(status_code, "The backend returned an error")
-
-
-def build_client(settings: Settings) -> AuditAgentClient:
-    """Pick the mock or HTTP client according to configuration."""
-    if settings.is_mock:
-        from .mock_backend import MockAuditAgentClient
-
-        return MockAuditAgentClient(settings)
-    return HttpAuditAgentClient(settings)

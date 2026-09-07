@@ -16,8 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from audit_front.example_backend import AYVENS_UK, ExampleDataAPI  # noqa: E402
 from audit_front.exporters import session_to_markdown  # noqa: E402
-from audit_front.mock_backend import AYVENS_UK, MockAuditAgentClient  # noqa: E402
 from audit_front.pipeline import STAGE_KEYS, get_stage  # noqa: E402
 from audit_front.runner import run_stage  # noqa: E402
 from audit_front.state import MissionSession  # noqa: E402
@@ -42,8 +42,10 @@ LOCAL_RECOMMENDATION = {
 
 
 def build_session() -> MissionSession:
-    session = MissionSession(mission_id=AYVENS_UK, analyst="r.doe")
-    client = MockAuditAgentClient(latency=False)
+    session = MissionSession(
+        mission_id=AYVENS_UK, analyst="r.doe", backend_mode="example data"
+    )
+    client = ExampleDataAPI(latency=False)
 
     for key in STAGE_KEYS:
         run_stage(session, client, get_stage(key))

@@ -1,0 +1,10 @@
+{
+  "found": false,
+  "recommendations": [],
+  "message": "No previous recommendation on the scope",
+  "implications": [
+    "The mission is not constrained by a backlog of prior recommendations specific to this combined scope (asset risk + HR + compliance + culture & conduct).",
+    "Check locally whether there are entity-level or topic-specific recommendations that may not have been captured under this exact mission ID (e.g. prior AML-only or HR-only missions).",
+    "Treat this mission as an opportunity to establish a baseline of findings and recommendations for future cycles."
+  ]
+}

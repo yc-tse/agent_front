@@ -15,11 +15,14 @@ from .session import (
     check_health,
     close_session,
     current_view,
+    describe_wiring,
     effective_settings,
     get_client,
     set_active_stage,
     set_override,
+    set_stage_live,
     set_view,
+    stage_sources,
     start_session,
 )
 
@@ -73,9 +76,9 @@ def _mission_entry() -> None:
         rerun()
 
     if settings.is_mock:
-        from ..mock_backend import available_missions
+        from ..example_backend import available_missions
 
-        st.caption("Mock mode — bundled sample missions:")
+        st.caption("Example data — bundled sample missions:")
         for sample_id, name in available_missions():
             if st.button(sample_id, key=f"sample_{sample_id}", width="stretch", help=name):
                 start_session(sample_id)
@@ -204,18 +207,18 @@ def _navigation(session: MissionSession) -> None:
 
 def _connection_panel() -> None:
     settings = effective_settings()
-    label = "Mock backend" if settings.is_mock else "Live backend"
-    with st.expander(f"Connection — {label}", expanded=False):
+    with st.expander(f"Connection — {describe_wiring(settings)}", expanded=False):
         mode = st.radio(
             "Backend",
             ["mock", "live"],
             index=0 if settings.is_mock else 1,
             horizontal=True,
             key="backend_mode_radio",
-            help="Mock runs offline against bundled sample missions.",
+            help="Mock serves bundled example data offline; live calls the real backend.",
         )
         if mode != settings.backend_mode:
             set_override("backend_mode", mode)
+            set_override("live_stages", None)  # back to following the mode
             rerun()
 
         if mode == "live":
@@ -226,6 +229,8 @@ def _connection_panel() -> None:
                 set_override("base_url", base_url)
                 rerun()
             st.caption(f"Stage endpoint: `{settings.stage_path}`")
+
+        _wiring_controls(settings)
 
         health = check_health()
         if health.ok:
@@ -239,3 +244,41 @@ def _connection_panel() -> None:
             rerun()
 
         st.caption(f"Analyst: `{settings.analyst}`")
+
+
+def _wiring_controls(settings) -> None:
+    """Per-stage live/example switches — the staged-cutover surface.
+
+    The six backend APIs will not ship together, so each one can be turned on
+    the day it lands. Set `AUDIT_LIVE_STAGES` to make a choice here permanent.
+
+    The box shows where a stage's data comes from now; ticking it moves that
+    stage to the live backend. Configuration is the source of truth, so the
+    boxes are rendered from `stage_sources()` on every run rather than from
+    their own remembered state.
+    """
+    sources = stage_sources(settings)
+    live_count = sum(1 for value in sources.values() if value == "live")
+    can_go_live = bool(settings.base_url)
+
+    st.markdown("###### Stage wiring")
+    st.caption(
+        f"{live_count} of {len(STAGES)} stages call the real backend. "
+        "Switch one on as its endpoint ships."
+    )
+
+    for spec in STAGES:
+        is_live = sources[spec.key] == "live"
+        checked = st.checkbox(
+            f"{spec.number}. {spec.short_label} — {'live' if is_live else 'example data'}",
+            value=is_live,
+            key=f"wiring_{spec.key}",
+            disabled=not can_go_live and not is_live,
+            help=f"Served by `{spec.api_method}()` — see audit_front/client.py",
+        )
+        if checked != is_live:
+            set_stage_live(spec.key, checked)
+            rerun()
+
+    if not can_go_live:
+        st.caption("Set a base URL above to route stages to the real backend.")

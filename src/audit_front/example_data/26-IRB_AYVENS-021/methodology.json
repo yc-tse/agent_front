@@ -1,0 +1,22 @@
+{
+  "found": true,
+  "message": "1 registered methodology matched this scope",
+  "references": [
+    {
+      "ref_id": "METH-LEAS-014",
+      "title": "Residual value governance and remarketing controls",
+      "version": "v3.1 (2025-04)",
+      "url": "https://intranet.example/audit/methodo/METH-LEAS-014",
+      "summary": "Standard programme for RV curve setting, challenge and back-testing, plus disposal-channel controls and auction partner oversight.",
+      "scope_match": "High — process and entity axes both matched"
+    }
+  ],
+  "implications": [
+    "A registered methodology exists; use it as the testing backbone rather than building a programme from scratch.",
+    "Version 3.1 postdates the 2025 market correction and already covers EV residual values."
+  ],
+  "recommended_approach": [
+    "Follow METH-LEAS-014 sections 2 (RV setting) and 4 (disposal controls).",
+    "Extend the sample to cover the EV sub-fleet specifically, given OPL-2024-3312."
+  ]
+}

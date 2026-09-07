@@ -43,6 +43,14 @@ class StageSpec:
     hitl_note: str
     """What the analyst is actually being asked to check at this checkpoint."""
 
+    api_method: str
+    """Name of the :class:`~audit_front.api.BackendAPI` method that serves this stage.
+
+    Declared here rather than in a separate lookup table so the stage list stays
+    the only place the pipeline is defined; `BackendAPI.run_stage` dispatches on
+    it, and a test asserts every name resolves to a real method.
+    """
+
     critical_checkpoint: bool = False
     """True for stages where an unreviewed error contaminates everything after."""
 
@@ -58,6 +66,7 @@ class StageSpec:
 STAGES: tuple[StageSpec, ...] = (
     StageSpec(
         key="mission_metadata",
+        api_method="fetch_mission_metadata",
         order=0,
         label="Mission metadata",
         short_label="Metadata",
@@ -75,6 +84,7 @@ STAGES: tuple[StageSpec, ...] = (
     ),
     StageSpec(
         key="scope_understanding",
+        api_method="analyse_mission_scope",
         order=1,
         label="Mission scope understanding",
         short_label="Scope",
@@ -93,6 +103,7 @@ STAGES: tuple[StageSpec, ...] = (
     ),
     StageSpec(
         key="risk_events",
+        api_method="fetch_risk_events",
         order=2,
         label="Operational risk events in scope",
         short_label="Risk events",
@@ -110,6 +121,7 @@ STAGES: tuple[StageSpec, ...] = (
     ),
     StageSpec(
         key="methodology",
+        api_method="fetch_methodology",
         order=3,
         label="Methodology references",
         short_label="Methodology",
@@ -127,6 +139,7 @@ STAGES: tuple[StageSpec, ...] = (
     ),
     StageSpec(
         key="historical_recommendations",
+        api_method="fetch_historical_recommendations",
         order=4,
         label="Historical recommendations",
         short_label="History",
@@ -144,6 +157,7 @@ STAGES: tuple[StageSpec, ...] = (
     ),
     StageSpec(
         key="briefing",
+        api_method="build_briefing",
         order=5,
         label="Consolidated pre-mission briefing",
         short_label="Briefing",

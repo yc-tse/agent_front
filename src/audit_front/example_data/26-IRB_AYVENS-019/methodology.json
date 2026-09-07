@@ -1,0 +1,15 @@
+{
+  "found": false,
+  "references": [],
+  "message": "No Methodo found for this mission",
+  "implications": [
+    "There is no pre-registered, mission-specific methodological template or prior structured 'methodo' for this exact scope."
+  ],
+  "recommended_approach": [
+    "Apply the standard internal audit methodology: risk-based scoping, process walkthroughs, control testing, sampling, thematic reviews.",
+    "Tailor it to asset risk in operating leasing activities.",
+    "Tailor it to HR processes (compensation, careers, payroll, skills, social relations).",
+    "Tailor it to compliance (AML/CTF, KYC, sanctions, data protection, client protection, ethics & anti-corruption).",
+    "Tailor it to culture & conduct (tone from the top, staff behaviour, incentives, whistleblowing, disciplinary processes)."
+  ]
+}

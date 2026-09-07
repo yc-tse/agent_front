@@ -15,7 +15,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from audit_front.config import get_settings
-from audit_front.mock_backend import AYVENS_DE, AYVENS_UK, MockAuditAgentClient
+from audit_front.example_backend import AYVENS_DE, AYVENS_UK, ExampleDataAPI
 from audit_front.pipeline import STAGE_KEYS, get_stage
 from audit_front.runner import run_stage
 from audit_front.state import MissionSession
@@ -35,7 +35,7 @@ def mock_backend(monkeypatch):
 
 def _completed_session(mission_id: str, *, approve: bool = True) -> MissionSession:
     session = MissionSession(mission_id=mission_id, analyst="tester")
-    client = MockAuditAgentClient(latency=False)
+    client = ExampleDataAPI(latency=False)
     for key in STAGE_KEYS:
         run = run_stage(session, client, get_stage(key))
         # Fail loudly here rather than quietly rendering an error state, which
@@ -137,6 +137,72 @@ class TestReviewState:
         at = _app(session, stage="scope_understanding")
         _assert_clean(at, "empty scope")
         assert any("No filter dimension is set" in error.value for error in at.error)
+
+
+class TestStageWiring:
+    """The Connection panel is how a stage gets switched to the real backend."""
+
+    def test_every_stage_has_a_wiring_control(self):
+        at = _app()
+        _assert_clean(at, "wiring controls")
+        keys = [checkbox.key for checkbox in at.sidebar.checkbox if checkbox.key]
+        for spec_key in STAGE_KEYS:
+            assert f"wiring_{spec_key}" in keys, f"no wiring control for {spec_key}"
+
+    def test_the_control_names_the_source_it_is_showing(self):
+        at = _app()
+        labels = " ".join(checkbox.label for checkbox in at.sidebar.checkbox)
+        assert "example data" in labels
+
+    def test_wiring_reports_example_data_without_a_base_url(self):
+        at = _app()
+        assert any("0 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+
+    def test_switching_to_live_does_not_get_silently_undone(self, monkeypatch):
+        """The control displays the configured wiring; it must never rewrite it.
+
+        Renders across the change that matters — no backend, then a backend
+        with every stage live — because that is where a control holding its own
+        copy of the state would show one thing while the config said another.
+        """
+        at = AppTest.from_file(str(APP), default_timeout=60)
+
+        # 1. No backend configured: every stage is on example data.
+        at.run()
+        _assert_clean(at, "wiring before a base URL")
+        assert any("0 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+
+        # 2. The backend appears and every stage is configured live.
+        monkeypatch.setenv("AUDIT_BACKEND_MODE", "live")
+        monkeypatch.setenv("AUDIT_API_BASE_URL", "https://audit-agent.internal")
+        monkeypatch.setenv("AUDIT_LIVE_STAGES", "all")
+        get_settings.cache_clear()
+
+        at.run()
+        _assert_clean(at, "wiring after a base URL")
+        assert any("6 of 6 stages call the real backend" in c.value for c in at.sidebar.caption), (
+            "the wiring control overwrote the configuration it was meant to display"
+        )
+
+        at.run()  # and it must stay put
+        _assert_clean(at, "wiring on re-render")
+        assert any("6 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+
+    def test_a_partial_cutover_is_named_in_the_connection_header(self, monkeypatch):
+        monkeypatch.setenv("AUDIT_BACKEND_MODE", "live")
+        monkeypatch.setenv("AUDIT_API_BASE_URL", "https://audit-agent.internal")
+        monkeypatch.setenv("AUDIT_LIVE_STAGES", "mission_metadata,risk_events")
+        get_settings.cache_clear()
+
+        at = AppTest.from_file(str(APP), default_timeout=60)
+        at.run()
+        _assert_clean(at, "partial cutover")
+        assert any("2 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+
+    def test_a_stage_served_from_example_data_says_so_in_its_header(self):
+        at = _app(_completed_session(AYVENS_UK), stage="risk_events")
+        _assert_clean(at, "source chip")
+        assert any("example data" in md.value for md in at.markdown)
 
 
 class TestOutputViews:

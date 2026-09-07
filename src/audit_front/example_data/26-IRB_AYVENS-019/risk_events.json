@@ -1,0 +1,11 @@
+{
+  "events": [],
+  "total_count": 0,
+  "period": "2023-01-01 to 2026-08-31",
+  "interpretation": [
+    "No recorded operational loss events were retrieved for the specified entities within the parameters used by the pre-mission tool.",
+    "This does not prove absence of incidents; it only indicates that no structured loss data has been surfaced for the perimeter.",
+    "Rely more heavily on qualitative sources (risk maps, RCSA, incident logs, complaints, HR cases, compliance alerts) during fieldwork.",
+    "Pay attention to emerging or non-quantified risks in asset risk, HR, compliance and culture & conduct, as they may not yet be reflected in loss databases."
+  ]
+}

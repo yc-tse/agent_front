@@ -1,0 +1,34 @@
+{
+  "found": true,
+  "message": "2 recommendations found on the perimeter",
+  "recommendations": [
+    {
+      "rec_id": "REC-2023-0219",
+      "title": "Formalise quarterly residual-value challenge committee",
+      "mission_ref": "23-IRB/AYVENS-007",
+      "entity": "ALD AUTOMOTIVE GMBH",
+      "risk_family": "Risks related to operating leasing activities",
+      "criticality": "High",
+      "status": "Open",
+      "due_date": "2025-12-31",
+      "description": "The 2023 review found RV assumptions were revised by the pricing team without independent challenge. Overdue by more than one cycle.",
+      "source": "backend"
+    },
+    {
+      "rec_id": "REC-2024-0455",
+      "title": "Reconcile disposal platform invoices to the general ledger monthly",
+      "mission_ref": "24-IRB/AYVENS-012",
+      "entity": "AYVENS REMARKETING GMBH",
+      "risk_family": "Errors in operating processes",
+      "criticality": "Medium",
+      "status": "Closed",
+      "due_date": "2025-06-30",
+      "description": "Closed in Q3 2025; effectiveness not yet re-tested.",
+      "source": "backend"
+    }
+  ],
+  "implications": [
+    "REC-2023-0219 is open and overdue, and it addresses the exact control that failed in OPL-2024-3312 — verify remediation status early.",
+    "REC-2024-0455 is closed but never re-tested; include it in the sample."
+  ]
+}

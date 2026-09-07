@@ -1,0 +1,61 @@
+{
+  "total_count": 4,
+  "total_amount": 1847000.0,
+  "currency": "EUR",
+  "period": "2024-01-01 to 2026-06-30",
+  "events": [
+    {
+      "event_id": "OPL-2024-3312",
+      "title": "Residual value write-down on EV sub-fleet",
+      "entity": "ALD AUTOMOTIVE GMBH",
+      "event_date": "2024-09-30",
+      "risk_category": "Risks related to operating leasing activities",
+      "gross_amount": 1210000.0,
+      "net_amount": 1210000.0,
+      "currency": "EUR",
+      "status": "Closed",
+      "description": "RV curves for a 340-vehicle EV sub-fleet were not refreshed after the Q2 2024 market correction, producing a one-off write-down at contract end."
+    },
+    {
+      "event_id": "OPL-2025-0148",
+      "title": "Duplicate disposal invoices to auction partner",
+      "entity": "AYVENS REMARKETING GMBH",
+      "event_date": "2025-02-11",
+      "risk_category": "Errors in operating processes",
+      "gross_amount": 318500.0,
+      "net_amount": 96200.0,
+      "currency": "EUR",
+      "status": "Closed",
+      "description": "A batch re-run in the disposal platform issued duplicate invoices; 70% recovered from the partner within the quarter."
+    },
+    {
+      "event_id": "OPL-2025-0771",
+      "title": "Damage recharge not billed at fleet return",
+      "entity": "LEASEPLAN DEUTSCHLAND GMBH",
+      "event_date": "2025-06-04",
+      "risk_category": "Errors in operating processes",
+      "gross_amount": 214000.0,
+      "net_amount": 214000.0,
+      "currency": "EUR",
+      "status": "Open",
+      "description": "End-of-contract damage assessments for one corporate client were not transferred to billing for eleven months."
+    },
+    {
+      "event_id": "OPL-2026-0042",
+      "title": "Late de-registration penalties",
+      "entity": "AYVENS REMARKETING GMBH",
+      "event_date": "2026-01-22",
+      "risk_category": "Errors in operating processes",
+      "gross_amount": 104500.0,
+      "net_amount": 104500.0,
+      "currency": "EUR",
+      "status": "Open",
+      "description": "Vehicles sold at auction were de-registered after the statutory window, triggering administrative penalties."
+    }
+  ],
+  "interpretation": [
+    "Losses concentrate on the remarketing chain rather than on contract origination.",
+    "Two of four events remain open, so the control weakness is not yet remediated.",
+    "The single largest loss is a residual-value governance failure, which aligns directly with the mission's primary process axis."
+  ]
+}

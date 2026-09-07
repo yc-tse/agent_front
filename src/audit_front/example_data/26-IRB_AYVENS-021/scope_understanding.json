@@ -1,0 +1,28 @@
+{
+  "mission_name": "2026_Ayvens Germany - Remarketing & Residual Value Management",
+  "brief_scope": "Thematic review of remarketing and residual-value governance across the German leasing entities.",
+  "primary_scope_driver": "Process-driven",
+  "scope_coverage": "Approximate",
+  "missing_dimensions": [
+    "Time period is not stated in the mission brief; assumed FY2024-FY2025.",
+    "Unclear whether the captive dealer network is in scope for disposal channels."
+  ],
+  "entity_filter": [
+    "ALD AUTOMOTIVE GMBH",
+    "LEASEPLAN DEUTSCHLAND GMBH",
+    "AYVENS REMARKETING GMBH"
+  ],
+  "activity_filter": [
+    "A04.02 — Residual value setting",
+    "A04.05 — Remarketing & disposal"
+  ],
+  "risk_filter": [
+    "Risks related to operating leasing activities",
+    "Errors in operating processes"
+  ],
+  "reasoning": [
+    "The mission title names two processes explicitly, so the process axis is the primary driver rather than the entity list.",
+    "The entity filter still applies as a secondary constraint (German entities only).",
+    "Coverage is marked approximate because the disposal-channel boundary is not settled in the brief."
+  ]
+}

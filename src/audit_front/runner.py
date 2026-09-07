@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from .client import AuditAgentClient, BackendError
+from .api import BackendAPI, BackendError
 from .pipeline import STAGE_KEYS, StageSpec, get_stage
 from .state import MissionSession, StageRun, StageStatus
 
@@ -18,7 +18,7 @@ ProgressCallback = Callable[[StageSpec], None]
 
 def run_stage(
     session: MissionSession,
-    client: AuditAgentClient,
+    client: BackendAPI,
     spec: StageSpec,
     *,
     feedback: str | None = None,
@@ -56,6 +56,7 @@ def run_stage(
         response.payload,
         warnings=response.warnings,
         trace_id=response.trace_id,
+        source=response.source,
     )
     return run
 
@@ -67,7 +68,7 @@ def runnable_in_draft(session: MissionSession, spec: StageSpec) -> bool:
 
 def run_draft_pipeline(
     session: MissionSession,
-    client: AuditAgentClient,
+    client: BackendAPI,
     *,
     on_progress: ProgressCallback | None = None,
     stop_on_error: bool = True,

@@ -24,6 +24,7 @@ from ..common import (
     purpose,
     raw_payload,
     rerun,
+    source_chip,
     status_chip,
     warnings_block,
 )
@@ -49,6 +50,8 @@ def render_stage(session: MissionSession, spec: StageSpec, client: Any) -> None:
     run = session.stage(spec.key)
 
     chips = status_chip(run.status, stale=run.stale, edited=run.edited)
+    if run.has_result and (source := source_chip(run.source)):
+        chips += f'<span style="margin-left:.4rem;">{source}</span>'
     if spec.critical_checkpoint:
         chips += (
             '<span class="af-chip" style="color:#B06000;background:#FFF4E5;margin-left:.4rem;">'

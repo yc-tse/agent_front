@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-from audit_front.client import (
-    BackendError,
-    build_request_body,
-    extract_trace_id,
-    extract_warnings,
-    unwrap_payload,
-)
+from audit_front.api import BackendError, StageRequest
+from audit_front.client import extract_trace_id, extract_warnings, unwrap_payload
 from audit_front.pipeline import get_stage
 
 
@@ -64,13 +59,13 @@ class TestMetadataExtraction:
 
 class TestRequestBody:
     def test_context_and_feedback_are_included(self):
-        body = build_request_body(
-            get_stage("risk_events"),
-            "26-IRB/AYVENS-019",
-            {"scope_understanding": {"entity_filter": ["A"]}},
+        body = StageRequest(
+            mission_id="26-IRB/AYVENS-019",
+            stage=get_stage("risk_events"),
+            context={"scope_understanding": {"entity_filter": ["A"]}},
             feedback="narrow to leasing entities",
             analyst="tester",
-        )
+        ).to_json()
         assert body["mission_id"] == "26-IRB/AYVENS-019"
         assert body["stage"] == "risk_events"
         assert body["context"]["scope_understanding"]["entity_filter"] == ["A"]
@@ -78,9 +73,38 @@ class TestRequestBody:
         assert body["requested_by"] == "tester"
 
     def test_optional_keys_are_omitted_when_unused(self):
-        body = build_request_body(get_stage("mission_metadata"), "M", {})
+        body = StageRequest(mission_id="M", stage=get_stage("mission_metadata")).to_json()
         assert "analyst_feedback" not in body
         assert "overrides" not in body
+
+
+class TestStageRequestAccessors:
+    """Implementations read the perimeter through these, not through raw dicts."""
+
+    def test_entity_filter_prefers_the_validated_scope(self):
+        request = StageRequest(
+            mission_id="M",
+            stage=get_stage("risk_events"),
+            context={
+                "mission_metadata": {"entities": ["A", "B", "C"]},
+                "scope_understanding": {"entity_filter": ["A"]},
+            },
+        )
+        assert request.entity_filter == ["A"]
+
+    def test_entity_filter_falls_back_to_the_metadata(self):
+        request = StageRequest(
+            mission_id="M",
+            stage=get_stage("risk_events"),
+            context={"mission_metadata": {"entities": ["A", "B"]}},
+        )
+        assert request.entity_filter == ["A", "B"]
+
+    def test_missing_upstream_is_an_empty_dict_not_an_error(self):
+        request = StageRequest(mission_id="M", stage=get_stage("briefing"))
+        assert request.scope == {}
+        assert request.metadata == {}
+        assert request.entity_filter == []
 
 
 class TestBackendError:

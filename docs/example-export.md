@@ -6,14 +6,16 @@
 
 **2026_Ayvens United Kingdom - Asset Risk, Human Resources, Compliance, and Culture & Conduct**
 
-> Prepared with the internal-audit mission-preparation agent on 2026-09-05 21:21 UTC  
-> Analyst: r.doe · Backend: mock · 6/6 stages approved
+> Prepared with the internal-audit mission-preparation agent on 2026-09-07 23:14 UTC  
+> Analyst: r.doe · Backend: example data · 6/6 stages approved
+
+> 🧪 **Not from the live backend.** Every section of this pack was served from bundled example data, and must not be relied on as findings.
 
 ---
 
 ## 1. Mission metadata
 
-_Approved_
+_Approved · example data_
 
 - **Mission ID:** 26-IRB/AYVENS-019
 - **Mission name:** 2026_Ayvens United Kingdom - Asset Risk, Human Resources, Compliance, and Culture & Conduct
@@ -83,7 +85,7 @@ _Approved_
 
 ## 2. Mission scope understanding
 
-_Approved · edited by analyst · note: DIAL entities dormant since 2024 — confirmed with the CFO_
+_Approved · example data · edited by analyst · note: DIAL entities dormant since 2024 — confirmed with the CFO_
 
 - **Primary scope driver:** Entity-driven
 - **Scope coverage:** Exact
@@ -109,7 +111,7 @@ _Approved · edited by analyst · note: DIAL entities dormant since 2024 — con
 
 ## 3. Operational risk events in scope
 
-_Approved_
+_Approved · example data_
 
 - **Operational losses identified:** none surfaced for this perimeter.
 - **Period covered:** 2023-01-01 to 2026-08-31
@@ -124,7 +126,7 @@ _Approved_
 
 ## 4. Methodology references
 
-_Approved_
+_Approved · example data_
 
 - **Result:** No Methodo found for this mission
 
@@ -142,7 +144,7 @@ _Approved_
 
 ## 5. Historical recommendations
 
-_Approved · edited by analyst · note: added from the 2024 AML-only review of the same entities_
+_Approved · example data · edited by analyst · note: added from the 2024 AML-only review of the same entities_
 
 - **Result:** No previous recommendation on the scope
 
@@ -159,7 +161,7 @@ _Approved · edited by analyst · note: added from the 2024 AML-only review of t
 
 ## 6. Consolidated pre-mission briefing
 
-_Approved_
+_Approved · example data_
 
 **Mission objective (operational view)**
 
@@ -228,23 +230,23 @@ Perform a multi-thematic, entity-driven review across Ayvens UK legal entities, 
 
 | Time (UTC) | Actor | Action | Stage | Detail |
 | --- | --- | --- | --- | --- |
-| 2026-09-05 21:21:19 | agent | stage_run_started | Metadata | — |
-| 2026-09-05 21:21:19 | agent | stage_completed | Metadata | run #1, trace mock-ayvens-019-mission_metadata-001 |
-| 2026-09-05 21:21:19 | r.doe | stage_approved | Metadata | approved as produced |
-| 2026-09-05 21:21:19 | agent | stage_run_started | Scope | — |
-| 2026-09-05 21:21:19 | agent | stage_completed | Scope | run #1, trace mock-ayvens-019-scope_understanding-002 |
-| 2026-09-05 21:21:19 | r.doe | stage_edited | Scope | changed: entity_filter (-2) |
-| 2026-09-05 21:21:19 | r.doe | stage_approved | Scope | edited then approved — DIAL entities dormant since 2024 — confirmed with the CFO |
-| 2026-09-05 21:21:19 | agent | stage_run_started | Risk events | — |
-| 2026-09-05 21:21:19 | agent | stage_completed | Risk events | run #1, trace mock-ayvens-019-risk_events-003 |
-| 2026-09-05 21:21:19 | r.doe | stage_approved | Risk events | approved as produced |
-| 2026-09-05 21:21:19 | agent | stage_run_started | Methodology | — |
-| 2026-09-05 21:21:19 | agent | stage_completed | Methodology | run #1, trace mock-ayvens-019-methodology-004 |
-| 2026-09-05 21:21:19 | r.doe | stage_approved | Methodology | approved as produced |
-| 2026-09-05 21:21:19 | agent | stage_run_started | History | — |
-| 2026-09-05 21:21:19 | agent | stage_completed | History | run #1, trace mock-ayvens-019-historical_recommendations-005 |
-| 2026-09-05 21:21:19 | r.doe | stage_edited | History | changed: recommendations (+1), found |
-| 2026-09-05 21:21:19 | r.doe | stage_approved | History | edited then approved — added from the 2024 AML-only review of the same entities |
-| 2026-09-05 21:21:19 | agent | stage_run_started | Briefing | — |
-| 2026-09-05 21:21:19 | agent | stage_completed | Briefing | run #1, trace mock-ayvens-019-briefing-006 |
-| 2026-09-05 21:21:19 | r.doe | stage_approved | Briefing | approved as produced |
+| 2026-09-07 23:14:57 | agent | stage_run_started | Metadata | — |
+| 2026-09-07 23:14:57 | agent | stage_completed | Metadata | run #1 · source example · trace example-ayvens-019-mission_metadata-001 |
+| 2026-09-07 23:14:57 | r.doe | stage_approved | Metadata | approved as produced |
+| 2026-09-07 23:14:57 | agent | stage_run_started | Scope | — |
+| 2026-09-07 23:14:57 | agent | stage_completed | Scope | run #1 · source example · trace example-ayvens-019-scope_understanding-002 |
+| 2026-09-07 23:14:57 | r.doe | stage_edited | Scope | changed: entity_filter (-2) |
+| 2026-09-07 23:14:57 | r.doe | stage_approved | Scope | edited then approved — DIAL entities dormant since 2024 — confirmed with the CFO |
+| 2026-09-07 23:14:57 | agent | stage_run_started | Risk events | — |
+| 2026-09-07 23:14:57 | agent | stage_completed | Risk events | run #1 · source example · trace example-ayvens-019-risk_events-003 |
+| 2026-09-07 23:14:57 | r.doe | stage_approved | Risk events | approved as produced |
+| 2026-09-07 23:14:57 | agent | stage_run_started | Methodology | — |
+| 2026-09-07 23:14:57 | agent | stage_completed | Methodology | run #1 · source example · trace example-ayvens-019-methodology-004 |
+| 2026-09-07 23:14:57 | r.doe | stage_approved | Methodology | approved as produced |
+| 2026-09-07 23:14:57 | agent | stage_run_started | History | — |
+| 2026-09-07 23:14:57 | agent | stage_completed | History | run #1 · source example · trace example-ayvens-019-historical_recommendations-005 |
+| 2026-09-07 23:14:57 | r.doe | stage_edited | History | changed: recommendations (+1), found |
+| 2026-09-07 23:14:57 | r.doe | stage_approved | History | edited then approved — added from the 2024 AML-only review of the same entities |
+| 2026-09-07 23:14:57 | agent | stage_run_started | Briefing | — |
+| 2026-09-07 23:14:57 | agent | stage_completed | Briefing | run #1 · source example · trace example-ayvens-019-briefing-006 |
+| 2026-09-07 23:14:57 | r.doe | stage_approved | Briefing | approved as produced |

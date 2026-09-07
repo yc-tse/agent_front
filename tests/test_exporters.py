@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 
+from audit_front.example_backend import AYVENS_DE, AYVENS_UK, ExampleDataAPI
 from audit_front.exporters import (
     export_filename,
     session_to_json,
     session_to_markdown,
     stage_markdown,
 )
-from audit_front.mock_backend import AYVENS_DE, AYVENS_UK, MockAuditAgentClient
 from audit_front.pipeline import STAGE_KEYS, get_stage
 from audit_front.runner import run_stage
 from audit_front.state import MissionSession
@@ -18,7 +18,7 @@ from audit_front.state import MissionSession
 
 def _completed_session(mission_id: str = AYVENS_UK) -> MissionSession:
     session = MissionSession(mission_id=mission_id, analyst="tester")
-    client = MockAuditAgentClient(latency=False)
+    client = ExampleDataAPI(latency=False)
     for key in STAGE_KEYS:
         run_stage(session, client, get_stage(key))
         session.approve(key)
@@ -38,8 +38,13 @@ class TestMarkdown:
 
     def test_briefing_only_export_omits_the_other_stages(self):
         markdown = session_to_markdown(_completed_session(), include_all_stages=False)
-        assert "Consolidated pre-mission briefing" in markdown
-        assert "Operational risk events in scope" not in markdown
+        assert "## 6. Consolidated pre-mission briefing" in markdown
+        assert "## 3. Operational risk events in scope" not in markdown
+
+    def test_briefing_only_banners_do_not_name_excluded_stages(self):
+        markdown = session_to_markdown(_completed_session(), include_all_stages=False)
+        banner = markdown.split("---", 1)[0]
+        assert "3. Operational risk events in scope" not in banner
 
     def test_empty_stages_state_their_result_rather_than_nothing(self):
         session = _completed_session(AYVENS_UK)
@@ -76,6 +81,41 @@ class TestMarkdown:
         )
         markdown = session_to_markdown(session)
         assert "Stale stages at export time" in markdown
+
+    def test_example_data_stages_are_flagged_on_the_first_page(self):
+        # A pack that mixes live and example data is otherwise indistinguishable
+        # from a fully live one — which is how example figures end up quoted.
+        markdown = session_to_markdown(_completed_session())
+        assert "Not from the live backend" in markdown
+        assert "must not be relied on as findings" in markdown
+
+    def test_a_partly_live_pack_names_only_the_example_sections(self):
+        session = _completed_session()
+        for key in STAGE_KEYS:
+            session.stage(key).source = "live"
+        session.stage("methodology").source = "example"
+        banner = session_to_markdown(session).split("---", 1)[0]
+        assert "4. Methodology references" in banner
+        assert "1. Mission metadata" not in banner
+        assert "Every section" not in banner
+
+    def test_a_fully_live_pack_carries_no_example_banner(self):
+        session = _completed_session()
+        for key in STAGE_KEYS:
+            session.stage(key).source = "live"
+        markdown = session_to_markdown(session)
+        assert "Not from the live backend" not in markdown
+
+    def test_each_stage_states_which_backend_answered(self):
+        session = _completed_session()
+        session.stage("risk_events").source = "live"
+        markdown = session_to_markdown(session)
+        assert "live backend" in markdown
+        assert "example data" in markdown
+
+    def test_the_source_is_recorded_per_stage_in_the_json(self):
+        document = json.loads(session_to_json(_completed_session()))
+        assert document["stages"]["risk_events"]["source"] == "example"
 
     def test_pipe_characters_in_details_do_not_break_the_table(self):
         session = _completed_session()

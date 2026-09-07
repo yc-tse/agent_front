@@ -1,0 +1,43 @@
+{
+  "objective": "Review residual-value governance and the remarketing chain across the German leasing entities, following the 2025 used-car price correction and the residual-value write-down recorded in 2024.",
+  "thematic_axes": [
+    {
+      "title": "Residual value setting and challenge",
+      "points": [
+        "How RV curves are set, who challenges them, and how often they are refreshed against market data.",
+        "Whether the EV sub-fleet is modelled separately — OPL-2024-3312 suggests it was not.",
+        "Back-testing of realised versus forecast residual values."
+      ]
+    },
+    {
+      "title": "Remarketing and disposal controls",
+      "points": [
+        "Disposal channel selection and auction partner oversight.",
+        "Invoice-to-ledger reconciliation on the disposal platform.",
+        "De-registration timeliness and the penalties it drives."
+      ]
+    },
+    {
+      "title": "End-of-contract billing",
+      "points": [
+        "Transfer of damage assessments from inspection to billing.",
+        "Ageing of unbilled damage recharges by client."
+      ]
+    }
+  ],
+  "risk_landscape": [
+    "Losses concentrate on the remarketing chain rather than on origination.",
+    "Two of four recorded events remain open."
+  ],
+  "methodology_stance": [
+    "Apply METH-LEAS-014 v3.1 as the testing backbone."
+  ],
+  "historical_context": [
+    "One open, overdue recommendation covers the control that failed in 2024."
+  ],
+  "open_questions": [
+    "Who owns the RV curve refresh cycle, and what triggers an off-cycle revision?",
+    "Is the captive dealer network in scope as a disposal channel?",
+    "Which period should the review cover — the brief does not say."
+  ]
+}

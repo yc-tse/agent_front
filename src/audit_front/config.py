@@ -74,6 +74,13 @@ class Settings:
     poll_interval_s: float = 2.0
     verify_ssl: bool = True
     analyst: str = "unknown"
+    live_stages: tuple[str, ...] | None = None
+    """Stages wired to the real backend, or None to let ``backend_mode`` decide.
+
+    Lets the six APIs be switched on one at a time as they ship, instead of
+    waiting for all of them. See :mod:`audit_front.routing`.
+    """
+
     extra_headers: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -103,6 +110,7 @@ class Settings:
             "max_retries": self.max_retries,
             "verify_ssl": self.verify_ssl,
             "analyst": self.analyst,
+            "live_stages": list(self.live_stages) if self.live_stages is not None else "(auto)",
         }
 
 
@@ -111,6 +119,22 @@ def _default_analyst() -> str:
         return getpass.getuser()
     except Exception:  # pragma: no cover - no OS user (container)
         return "unknown"
+
+
+def _parse_live_stages(raw: str) -> tuple[str, ...] | None:
+    """``""`` -> None (follow backend_mode); ``all``/``none`` and lists supported."""
+    value = raw.strip().lower()
+    if not value:
+        return None
+    if value in {"auto", "*"}:
+        return None
+    if value == "none":
+        return ()
+    if value == "all":
+        from .pipeline import STAGE_KEYS
+
+        return tuple(STAGE_KEYS)
+    return tuple(part.strip() for part in value.replace(";", ",").split(",") if part.strip())
 
 
 @lru_cache(maxsize=1)
@@ -133,4 +157,5 @@ def get_settings() -> Settings:
         poll_interval_s=_get_float("AUDIT_API_POLL_INTERVAL_S", 2.0),
         verify_ssl=_get_bool("AUDIT_API_VERIFY_SSL", True),
         analyst=_get("AUDIT_ANALYST", _default_analyst()),
+        live_stages=_parse_live_stages(_get("AUDIT_LIVE_STAGES")),
     )

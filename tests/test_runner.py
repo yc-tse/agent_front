@@ -10,15 +10,15 @@ from __future__ import annotations
 import pytest
 
 from audit_front.client import BackendError, StageResponse
-from audit_front.mock_backend import AYVENS_DE, AYVENS_UK, MockAuditAgentClient
+from audit_front.example_backend import AYVENS_DE, AYVENS_UK, ExampleDataAPI
 from audit_front.pipeline import STAGE_KEYS, get_stage
 from audit_front.runner import run_draft_pipeline, run_stage
 from audit_front.state import MissionSession, StageStatus
 
 
 @pytest.fixture
-def client() -> MockAuditAgentClient:
-    return MockAuditAgentClient(latency=False)
+def client() -> ExampleDataAPI:
+    return ExampleDataAPI(latency=False)
 
 
 def _session(mission_id: str = AYVENS_UK) -> MissionSession:
@@ -52,7 +52,9 @@ class TestSingleStage:
         session = _session("99-XXX/NOPE-001")
         run = run_stage(session, client, get_stage("mission_metadata"))
         assert run.status is StageStatus.ERROR
-        assert "not one of the bundled samples" in run.error
+        assert "has no example data" in run.error
+        # The message must say how to fix it, not just that it broke.
+        assert "example_data/99-XXX_NOPE-001" in run.error
 
     def test_an_unexpected_client_error_is_contained(self):
         class Exploding:
@@ -218,7 +220,7 @@ class TestDraftRun:
         assert "draft_run_finished" in actions
 
     def test_draft_run_stops_at_the_first_failure(self):
-        class FailsAtScope(MockAuditAgentClient):
+        class FailsAtScope(ExampleDataAPI):
             def run_stage(self, stage, mission_id, context, **kwargs):
                 if stage.key == "scope_understanding":
                     raise BackendError("backend down", status_code=503)

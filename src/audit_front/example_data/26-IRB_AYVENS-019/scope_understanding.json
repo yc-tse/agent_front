@@ -1,0 +1,24 @@
+{
+  "mission_name": "2026_Ayvens United Kingdom - Asset Risk, Human Resources, Compliance, and Culture & Conduct",
+  "brief_scope": "Multi-year audit cycle review of several thematic areas (asset risk, HR, compliance, culture & conduct) across Ayvens UK entities.",
+  "primary_scope_driver": "Entity-driven",
+  "scope_coverage": "Exact",
+  "missing_dimensions": [],
+  "entity_filter": [
+    "ALD AUTOMOTIVE LIMITED",
+    "AUTOMOTIVE LEASING LIMITED",
+    "DIAL CONTRACTS LIMITED",
+    "DIAL VEHICLE MANAGEMENT SERVICES LTD",
+    "FORD FLEET MANAGEMENT UK LIMITED",
+    "INTERNAL FLEET PURCHASING LIMITED",
+    "LEASEPLAN UK LIMITED",
+    "NETWORK VEHICLES LTD"
+  ],
+  "reasoning": [
+    "The entity list is more precise than the country axis and already embeds the UK dimension.",
+    "The mission title covers multiple themes (asset risk, HR, compliance, culture & conduct) as part of the audit cycle; no single risk or regulation uniquely defines the scope.",
+    "Country is redundant because all entities are UK-based and explicitly listed.",
+    "Regulations and risk types (AML, KYC, Data Protection, Ethics) are thematic components, not the primary scoping driver.",
+    "Therefore the minimal and accurate filter set for all subsequent analyses is the closed list of Ayvens UK entities."
+  ]
+}

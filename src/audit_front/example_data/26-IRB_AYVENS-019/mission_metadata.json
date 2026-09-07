@@ -1,0 +1,134 @@
+{
+  "mission_id": "26-IRB/AYVENS-019",
+  "mission_name": "2026_Ayvens United Kingdom - Asset Risk, Human Resources, Compliance, and Culture & Conduct",
+  "brief_scope": "Part of a multi-year plan to review topics due as per the audit cycle (periodic/thematic review rather than ad-hoc).",
+  "main_business_line": "AVNS/UK/IBFS/ALDA/LPUK/GBR/FIN",
+  "countries": [
+    "UNITED KINGDOM"
+  ],
+  "entities": [
+    "ALD AUTOMOTIVE LIMITED",
+    "AUTOMOTIVE LEASING LIMITED",
+    "DIAL CONTRACTS LIMITED",
+    "DIAL VEHICLE MANAGEMENT SERVICES LTD",
+    "FORD FLEET MANAGEMENT UK LIMITED",
+    "INTERNAL FLEET PURCHASING LIMITED",
+    "LEASEPLAN UK LIMITED",
+    "NETWORK VEHICLES LTD"
+  ],
+  "risk_families": [
+    "Anti-Bribery & Corruption",
+    "Anti-Money Laundering / CTF",
+    "Business & Strategy risks",
+    "Competition law",
+    "Data protection",
+    "Employment law & employer obligations",
+    "Errors in operating processes",
+    "Ethics & Conduct",
+    "Know Your Customer",
+    "Risks related to operating leasing activities",
+    "Staff and skills inadequacy",
+    "Sustainability risks"
+  ],
+  "activities": [
+    {
+      "code": "A01",
+      "label": "Clients & Third parties"
+    },
+    {
+      "code": "A03.03.03",
+      "label": "Rentals with/without Purchase Option; Short & Long Term Rentals"
+    },
+    {
+      "code": "A18.04 / A18.04.01",
+      "label": "Entity Management"
+    },
+    {
+      "code": "A22",
+      "label": "Compliance",
+      "children": [
+        {
+          "code": "A22.01",
+          "label": "Financial Crime",
+          "children": [
+            {
+              "code": "A22.01.01",
+              "label": "AML"
+            },
+            {
+              "code": "A22.01.02",
+              "label": "Embargoes & Sanctions"
+            },
+            {
+              "code": "A22.01.03",
+              "label": "KYC"
+            }
+          ]
+        },
+        {
+          "code": "A22.02",
+          "label": "Other Regulatory Compliance Activities",
+          "children": [
+            {
+              "code": "A22.02.02",
+              "label": "Client & Investor Protection"
+            },
+            {
+              "code": "A22.02.04",
+              "label": "Compliance Data Protection"
+            },
+            {
+              "code": "A22.02.05",
+              "label": "Ethics, Conduct & Anti-Corruption"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "A26",
+      "label": "Human Resources",
+      "children": [
+        {
+          "code": "A26.01",
+          "label": "HR Management",
+          "children": [
+            {
+              "code": "A26.01.01",
+              "label": "Compensation & Benefits"
+            },
+            {
+              "code": "A26.01.02",
+              "label": "Careers Management"
+            },
+            {
+              "code": "A26.01.03",
+              "label": "Administrative & Payroll"
+            },
+            {
+              "code": "A26.01.04",
+              "label": "Employment & Skills Management"
+            },
+            {
+              "code": "A26.01.05",
+              "label": "Social Relations Management"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "business_lines": [
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/FFM",
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/FIN",
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/HR",
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/LEGCPL",
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/MSQUAL",
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/RISKCPL",
+    "AVNS/IBFS/ALDI/UK/IBFS/ALDA/UK/SALMKT",
+    "AVNS/UK/IBFS/ALDA/LPUK/GBR/CPLE",
+    "AVNS/UK/IBFS/ALDA/LPUK/GBR/FIN",
+    "AVNS/UK/IBFS/ALDA/LPUK/GBR/HR"
+  ],
+  "audit_cycle": "2026 — periodic"
+}

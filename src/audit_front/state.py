@@ -106,6 +106,16 @@ class StageRun:
     review_note: str | None = None  # analyst comment recorded at approval
     stale: bool = False  # an upstream stage changed after this one ran
     run_count: int = 0
+    source: str | None = None
+    """Which backend answered — ``"live"`` or ``"example"``.
+
+    Recorded per stage because the six APIs go live at different times: a pack
+    can legitimately mix the two, and the reader has to be able to tell.
+    """
+
+    @property
+    def is_example_data(self) -> bool:
+        return self.source == "example"
 
     @property
     def payload(self) -> dict[str, Any]:
@@ -153,6 +163,7 @@ class StageRun:
             "edited_by_analyst": self.edited,
             "stale": self.stale,
             "run_count": self.run_count,
+            "source": self.source,
             "duration_s": self.duration_s,
             "trace_id": self.trace_id,
             "error": self.error,
@@ -226,6 +237,7 @@ class MissionSession:
         *,
         warnings: list[str] | None = None,
         trace_id: str | None = None,
+        source: str | None = None,
     ) -> None:
         run = self.stages[key]
         run.ai_payload = payload
@@ -233,6 +245,7 @@ class MissionSession:
         run.status = StageStatus.REVIEW
         run.warnings = list(warnings or [])
         run.trace_id = trace_id
+        run.source = source
         run.finished_at = _now()
         run.stale = False
         run.run_count += 1
@@ -242,7 +255,15 @@ class MissionSession:
             "stage_completed",
             stage=key,
             actor="agent",
-            detail=f"run #{run.run_count}" + (f", trace {trace_id}" if trace_id else ""),
+            detail=" · ".join(
+                part
+                for part in (
+                    f"run #{run.run_count}",
+                    f"source {source}" if source else None,
+                    f"trace {trace_id}" if trace_id else None,
+                )
+                if part
+            ),
         )
 
     def fail_run(self, key: str, message: str) -> None:
@@ -346,6 +367,11 @@ class MissionSession:
     @property
     def is_complete(self) -> bool:
         return self.approved_count == len(STAGE_KEYS)
+
+    @property
+    def example_data_stages(self) -> list[str]:
+        """Stages served from example data rather than the live backend."""
+        return [k for k in STAGE_KEYS if self.stages[k].is_example_data]
 
     @property
     def stale_stages(self) -> list[str]:
