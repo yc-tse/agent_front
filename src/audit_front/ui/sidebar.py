@@ -249,7 +249,7 @@ def _connection_panel() -> None:
 def _wiring_controls(settings) -> None:
     """Per-stage live/example switches — the staged-cutover surface.
 
-    The six backend APIs will not ship together, so each one can be turned on
+    The backend APIs will not ship together, so each one can be turned on
     the day it lands. Set `AUDIT_LIVE_STAGES` to make a choice here permanent.
 
     The box shows where a stage's data comes from now; ticking it moves that

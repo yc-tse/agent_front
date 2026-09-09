@@ -7,8 +7,10 @@ stage loaded — which trains analysts to ignore the warning that matters.
 
 from __future__ import annotations
 
+from sample_missions import AYVENS_UK
+
 from audit_front.diffing import canonical, change_summary, changed_fields, has_changes
-from audit_front.example_backend import AYVENS_UK, ExampleDataAPI
+from audit_front.example_backend import ExampleDataAPI
 from audit_front.pipeline import get_stage
 
 SCOPE = get_stage("scope_understanding")

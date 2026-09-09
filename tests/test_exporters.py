@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 
-from audit_front.example_backend import AYVENS_DE, AYVENS_UK, ExampleDataAPI
+from sample_missions import AYVENS_DE, AYVENS_UK
+
+from audit_front.example_backend import ExampleDataAPI
 from audit_front.exporters import (
     export_filename,
     session_to_json,
@@ -26,7 +28,7 @@ def _completed_session(mission_id: str = AYVENS_UK) -> MissionSession:
 
 
 class TestMarkdown:
-    def test_all_six_sections_are_present(self):
+    def test_every_stage_has_a_section(self):
         markdown = session_to_markdown(_completed_session())
         for spec_key in STAGE_KEYS:
             assert f"## {get_stage(spec_key).title}" in markdown
@@ -38,13 +40,13 @@ class TestMarkdown:
 
     def test_briefing_only_export_omits_the_other_stages(self):
         markdown = session_to_markdown(_completed_session(), include_all_stages=False)
-        assert "## 6. Consolidated pre-mission briefing" in markdown
-        assert "## 3. Operational risk events in scope" not in markdown
+        assert f"## {get_stage('briefing').title}" in markdown
+        assert f"## {get_stage('risk_events').title}" not in markdown
 
     def test_briefing_only_banners_do_not_name_excluded_stages(self):
         markdown = session_to_markdown(_completed_session(), include_all_stages=False)
         banner = markdown.split("---", 1)[0]
-        assert "3. Operational risk events in scope" not in banner
+        assert get_stage("risk_events").title not in banner
 
     def test_empty_stages_state_their_result_rather_than_nothing(self):
         session = _completed_session(AYVENS_UK)
@@ -58,6 +60,23 @@ class TestMarkdown:
         markdown = stage_markdown(session.stage("risk_events"))
         assert "| Ref | Date | Entity |" in markdown
         assert "OPL-2024-3312" in markdown
+
+    def test_3lod_reports_render_with_their_positions(self):
+        session = _completed_session(AYVENS_DE)
+        markdown = stage_markdown(session.stage("historical_reports"))
+        assert "| Ref | Title | Line | Issuer |" in markdown
+        assert "IGAD-2023-DE-0077" in markdown
+        assert "2LOD" in markdown
+        # The positions are what the mission has to live with — they must be
+        # in the pack, not only in the app.
+        assert "**IGAD positions:**" in markdown
+        assert "residual-value governance is unsatisfactory" in markdown
+
+    def test_a_report_stage_with_nothing_found_states_the_result(self):
+        session = _completed_session()
+        session.apply_edit("historical_reports", {"found": False, "reports": []})
+        markdown = stage_markdown(session.stage("historical_reports"))
+        assert "no prior 3LOD report found" in markdown
 
     def test_a_stage_never_run_says_so(self):
         session = MissionSession(mission_id="M")
@@ -147,7 +166,7 @@ class TestJson:
     def test_completion_flags_are_reported(self):
         document = json.loads(session_to_json(_completed_session()))
         assert document["complete"] is True
-        assert document["approved_stages"] == 6
+        assert document["approved_stages"] == len(STAGE_KEYS)
 
 
 class TestFilenames:

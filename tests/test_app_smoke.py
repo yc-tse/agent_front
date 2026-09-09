@@ -12,10 +12,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from sample_missions import AYVENS_DE, AYVENS_UK
 from streamlit.testing.v1 import AppTest
 
 from audit_front.config import get_settings
-from audit_front.example_backend import AYVENS_DE, AYVENS_UK, ExampleDataAPI
+from audit_front.example_backend import ExampleDataAPI
 from audit_front.pipeline import STAGE_KEYS, get_stage
 from audit_front.runner import run_stage
 from audit_front.state import MissionSession
@@ -156,7 +157,7 @@ class TestStageWiring:
 
     def test_wiring_reports_example_data_without_a_base_url(self):
         at = _app()
-        assert any("0 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+        assert any(f"0 of {len(STAGE_KEYS)} stages" in c.value for c in at.sidebar.caption)
 
     def test_switching_to_live_does_not_get_silently_undone(self, monkeypatch):
         """The control displays the configured wiring; it must never rewrite it.
@@ -170,7 +171,7 @@ class TestStageWiring:
         # 1. No backend configured: every stage is on example data.
         at.run()
         _assert_clean(at, "wiring before a base URL")
-        assert any("0 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+        assert any(f"0 of {len(STAGE_KEYS)} stages" in c.value for c in at.sidebar.caption)
 
         # 2. The backend appears and every stage is configured live.
         monkeypatch.setenv("AUDIT_BACKEND_MODE", "live")
@@ -180,13 +181,19 @@ class TestStageWiring:
 
         at.run()
         _assert_clean(at, "wiring after a base URL")
-        assert any("6 of 6 stages call the real backend" in c.value for c in at.sidebar.caption), (
+        assert any(
+            f"{len(STAGE_KEYS)} of {len(STAGE_KEYS)} stages" in c.value
+            for c in at.sidebar.caption
+        ), (
             "the wiring control overwrote the configuration it was meant to display"
         )
 
         at.run()  # and it must stay put
         _assert_clean(at, "wiring on re-render")
-        assert any("6 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+        assert any(
+            f"{len(STAGE_KEYS)} of {len(STAGE_KEYS)} stages" in c.value
+            for c in at.sidebar.caption
+        )
 
     def test_a_partial_cutover_is_named_in_the_connection_header(self, monkeypatch):
         monkeypatch.setenv("AUDIT_BACKEND_MODE", "live")
@@ -197,7 +204,7 @@ class TestStageWiring:
         at = AppTest.from_file(str(APP), default_timeout=60)
         at.run()
         _assert_clean(at, "partial cutover")
-        assert any("2 of 6 stages call the real backend" in c.value for c in at.sidebar.caption)
+        assert any(f"2 of {len(STAGE_KEYS)} stages" in c.value for c in at.sidebar.caption)
 
     def test_a_stage_served_from_example_data_says_so_in_its_header(self):
         at = _app(_completed_session(AYVENS_UK), stage="risk_events")

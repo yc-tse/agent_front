@@ -20,8 +20,8 @@ def render_welcome() -> None:
     settings = effective_settings()
     hero(
         "Pre-mission preparation",
-        "Enter a mission code in the sidebar to start. The agent runs six stages; you review "
-        "and approve each one before it feeds the next.",
+        "Enter a mission code in the sidebar to start. The agent runs the pipeline below; "
+        "you review and approve each stage before it feeds the next.",
     )
 
     st.markdown("##### What the agent does, and where you come in")
@@ -37,7 +37,7 @@ def render_welcome() -> None:
 
     if settings.is_mock:
         st.info(
-            "Running in **mock mode**: the six stages are served from bundled sample missions, "
+            "Running on **example data**: every stage is served from bundled sample missions, "
             "with no network calls. Point `AUDIT_API_BASE_URL` at the backend and set "
             "`AUDIT_BACKEND_MODE=live` to use the real agent.",
             icon="🧪",
@@ -93,7 +93,7 @@ def render_briefing_pack(session: MissionSession) -> None:
     st.divider()
     scope_choice = st.radio(
         "Contents",
-        ["Full pack (all six stages)", "Briefing only"],
+        ["Full pack (every stage)", "Briefing only"],
         horizontal=True,
         key="pack_scope",
     )

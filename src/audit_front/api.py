@@ -2,10 +2,10 @@
 
 **This is the file to read before wiring the real backend.**
 
-The mission-preparation agent exposes six sub-components. Rather than funnel
-them through a single generic call, :class:`BackendAPI` gives each one a named
-method, so connecting the real thing is six independent, greppable edits
-instead of one conditional:
+The mission-preparation agent exposes one sub-component per pipeline stage.
+Rather than funnel them through a single generic call, :class:`BackendAPI`
+gives each one a named method, so connecting the real thing is a set of
+independent, greppable edits instead of one conditional:
 
 | Stage | Method |
 |---|---|
@@ -13,14 +13,18 @@ instead of one conditional:
 | 2. Mission scope understanding | :meth:`BackendAPI.analyse_mission_scope` |
 | 3. Operational risk events in scope | :meth:`BackendAPI.fetch_risk_events` |
 | 4. Methodology references | :meth:`BackendAPI.fetch_methodology` |
-| 5. Historical recommendations | :meth:`BackendAPI.fetch_historical_recommendations` |
-| 6. Consolidated pre-mission briefing | :meth:`BackendAPI.build_briefing` |
+| 5. Historical 3LOD reports | :meth:`BackendAPI.fetch_historical_reports` |
+| 6. Historical recommendations | :meth:`BackendAPI.fetch_historical_recommendations` |
+| 7. Consolidated pre-mission briefing | :meth:`BackendAPI.build_briefing` |
+
+The table is documentation; the binding lives on each ``StageSpec`` as
+``api_method``, and a test asserts every one resolves.
 
 Two implementations ship today:
 
-* :class:`~audit_front.client.HttpBackendAPI` — the real one. Each of the six
-  methods carries the endpoint it will call and a marked block to replace when
-  that endpoint's true shape is known.
+* :class:`~audit_front.client.HttpBackendAPI` — the real one. Each method
+  carries the endpoint it will call and a marked block to replace when that
+  endpoint's true shape is known.
 * :class:`~audit_front.example_data.ExampleDataAPI` — loads bundled JSON.
 
 They can be mixed per stage (see :class:`~audit_front.routing.StageRouter`),
@@ -123,7 +127,7 @@ class StageRequest:
     """Everything one backend call needs.
 
     A single object rather than five positional arguments, so adding a field
-    later does not ripple through six method signatures and two
+    later does not ripple through every method signature and both
     implementations.
     """
 
@@ -192,7 +196,7 @@ class StageRequest:
 class BackendAPI(ABC):
     """One method per backend sub-component.
 
-    Subclasses implement the six abstract methods. ``run_stage`` is the
+    Subclasses implement every abstract method. ``run_stage`` is the
     dispatcher the rest of the app calls; it resolves the method from
     ``StageSpec.api_method`` and should not be overridden except by a router.
     """
@@ -200,7 +204,7 @@ class BackendAPI(ABC):
     label: ClassVar[str] = "backend"
     """Short name shown in the UI: ``"live"``, ``"example"``, ``"mixed"``."""
 
-    # -- the six backend APIs ---------------------------------------------
+    # -- the backend APIs, one per pipeline stage -------------------------
 
     @abstractmethod
     def fetch_mission_metadata(self, request: StageRequest) -> StageResponse:
@@ -236,19 +240,29 @@ class BackendAPI(ABC):
         """
 
     @abstractmethod
+    def fetch_historical_reports(self, request: StageRequest) -> StageResponse:
+        """Stage 5 — prior 3LOD reporting on the perimeter, and what it said.
+
+        Reads ``request.scope``. Expected payload: the reports themselves
+        (1LOD, 2LOD, 3LOD and external), a synthesis of their key messages, and
+        the positions IGAD has taken — which the mission will be read against.
+        An empty result is normal and must arrive as a payload.
+        """
+
+    @abstractmethod
     def fetch_historical_recommendations(self, request: StageRequest) -> StageResponse:
-        """Stage 5 — recommendations issued on this perimeter in earlier cycles.
+        """Stage 6 — recommendations issued on this perimeter in earlier cycles.
 
         Reads ``request.scope``. As with stage 4, an empty result is normal.
         """
 
     @abstractmethod
     def build_briefing(self, request: StageRequest) -> StageResponse:
-        """Stage 6 — synthesis of every validated stage into the deliverable.
+        """Stage 7 — synthesis of every validated stage into the deliverable.
 
         Reads the whole of ``request.context``: metadata, scope, risk events,
-        methodology and historical recommendations, each as the analyst
-        approved it.
+        methodology, historical reports and historical recommendations, each as
+        the analyst approved it.
         """
 
     # -- shared plumbing ---------------------------------------------------
@@ -260,7 +274,7 @@ class BackendAPI(ABC):
         """Which implementation will answer for this stage — ``live``/``example``.
 
         Routers override this; a single-implementation backend answers for all
-        six stages.
+        every stage.
         """
         return self.label
 

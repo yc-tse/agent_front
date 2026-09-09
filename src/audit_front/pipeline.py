@@ -1,9 +1,11 @@
-"""The six-stage mission-preparation pipeline.
+"""The mission-preparation pipeline: the stages, in order.
 
 This module is the single source of truth for what the pipeline *is*: stage
-order, dependencies, which model parses each payload, and which stage name is
-sent to the backend. The UI, the client and the exporter all read from here,
-so adding or renaming a stage is a one-line change.
+order, dependencies, which model parses each payload, which backend method
+serves it, and which stage name is sent to the backend. The UI, the client, the
+router and the exporter all read from here — nothing counts stages for itself —
+so inserting a stage is an entry in ``STAGES`` plus its model, its
+``BackendAPI`` method and a renderer.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from typing import TYPE_CHECKING
 from .models import (
     Briefing,
     HistoricalRecommendations,
+    HistoricalReports,
     Methodology,
     MissionMetadata,
     RiskEvents,
@@ -96,7 +99,7 @@ STAGES: tuple[StageSpec, ...] = (
             "process) and produce the filter set used by every later stage."
         ),
         hitl_note=(
-            "This filter drives stages 3 to 6. Too broad and you drown in irrelevant data; "
+            "This filter drives every stage after it. Too broad and you drown in irrelevant data; "
             "too narrow and you miss losses and recommendations that belong in scope."
         ),
         critical_checkpoint=True,
@@ -138,9 +141,29 @@ STAGES: tuple[StageSpec, ...] = (
         ),
     ),
     StageSpec(
+        key="historical_reports",
+        api_method="fetch_historical_reports",
+        order=4,
+        label="Historical 3LOD reports",
+        short_label="3LOD reports",
+        icon="📚",
+        model=HistoricalReports,
+        depends_on=("scope_understanding",),
+        purpose=(
+            "Find reports issued on this perimeter by the three lines of defence in earlier "
+            "assignments, and summarise their key messages and the IGAD positions taken."
+        ),
+        hitl_note=(
+            "Reports carry positions the mission will be read against. Anything the search "
+            "missed — a 2LOD review filed locally, a regulator letter, a report on a sister "
+            "entity — belongs here, and a report you judge irrelevant should be excluded and "
+            "the reason recorded."
+        ),
+    ),
+    StageSpec(
         key="historical_recommendations",
         api_method="fetch_historical_recommendations",
-        order=4,
+        order=5,
         label="Historical recommendations",
         short_label="History",
         icon="🗂️",
@@ -158,7 +181,7 @@ STAGES: tuple[StageSpec, ...] = (
     StageSpec(
         key="briefing",
         api_method="build_briefing",
-        order=5,
+        order=6,
         label="Consolidated pre-mission briefing",
         short_label="Briefing",
         icon="📄",
@@ -168,6 +191,7 @@ STAGES: tuple[StageSpec, ...] = (
             "scope_understanding",
             "risk_events",
             "methodology",
+            "historical_reports",
             "historical_recommendations",
         ),
         purpose=(

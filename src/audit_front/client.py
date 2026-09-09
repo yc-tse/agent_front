@@ -1,6 +1,6 @@
-"""The live backend: HTTP implementation of the six APIs.
+"""The live backend: HTTP implementation of the stage APIs.
 
-Each of the six methods below is a **placeholder wired to a sensible default**.
+Each method below is a **placeholder wired to a sensible default**.
 Today they all post to one templated endpoint (`AUDIT_API_STAGE_PATH`, with
 `{stage}` substituted), which is what the assumed contract in
 `docs/backend-contract.md` describes. When a real endpoint turns out to have a
@@ -128,7 +128,7 @@ class HttpBackendAPI(BackendAPI):
         )
 
     # =====================================================================
-    # The six backend APIs
+    # The backend APIs, one per pipeline stage
     #
     # Each is a seam. Replace the body of the one whose endpoint you know;
     # leave the others on the generic default until their turn comes.
@@ -141,7 +141,7 @@ class HttpBackendAPI(BackendAPI):
 
             POST {AUDIT_API_STAGE_PATH}   with stage="mission_metadata"
 
-        Runs from the mission code alone, so this is the likeliest of the six
+        Runs from the mission code alone, so this is the likeliest of them
         to be a plain resource read on the real backend.
         """
         # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
@@ -208,8 +208,31 @@ class HttpBackendAPI(BackendAPI):
         #         raise
         return self.post_stage(request)
 
+    def fetch_historical_reports(self, request: StageRequest) -> StageResponse:
+        """Stage 5 — prior 3LOD reporting on the perimeter, and what it said.
+
+        Assumed today::
+
+            POST {AUDIT_API_STAGE_PATH}   with stage="historical_reports"
+
+        Likely to be served by a document store or report register rather than
+        by the agent, and likely to need the perimeter as a query rather than
+        as context — ``request.entity_filter`` is that perimeter, already
+        reflecting any analyst edit.
+        """
+        # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
+        # e.g. a search against the report register:
+        #     return self.post_json(
+        #         "/api/v1/reports/search",
+        #         {
+        #             "entities": request.entity_filter,
+        #             "lines_of_defence": ["1LOD", "2LOD", "3LOD", "External"],
+        #         },
+        #     )
+        return self.post_stage(request)
+
     def fetch_historical_recommendations(self, request: StageRequest) -> StageResponse:
-        """Stage 5 — recommendations raised on this perimeter in earlier cycles.
+        """Stage 6 — recommendations raised on this perimeter in earlier cycles.
 
         Assumed today::
 
@@ -222,15 +245,15 @@ class HttpBackendAPI(BackendAPI):
         return self.post_stage(request)
 
     def build_briefing(self, request: StageRequest) -> StageResponse:
-        """Stage 6 — synthesis of every validated stage.
+        """Stage 7 — synthesis of every validated stage.
 
         Assumed today::
 
             POST {AUDIT_API_STAGE_PATH}   with stage="briefing"
 
-        The body carries all five upstream payloads *as the analyst approved
-        them*, which is what makes the briefing reflect human review rather
-        than the agent's first draft. Keep that if you reshape the request.
+        The body carries every upstream payload *as the analyst approved them*,
+        which is what makes the briefing reflect human review rather than the
+        agent's first draft. Keep that if you reshape the request.
         """
         # ── CONNECT THE REAL ENDPOINT HERE ─────────────────────────────────
         # This stage is the likeliest to be long-running; if it returns a job

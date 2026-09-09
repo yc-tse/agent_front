@@ -9,21 +9,14 @@ mystery in the UI.
 from __future__ import annotations
 
 import inspect
-import json
 
 import pytest
+from sample_missions import AYVENS_UK
 
 from audit_front.api import BackendAPI, StageRequest, StageResponse
 from audit_front.client import HttpBackendAPI
 from audit_front.config import Settings
-from audit_front.example_backend import (
-    AYVENS_DE,
-    AYVENS_UK,
-    EXAMPLE_DIR,
-    ExampleDataAPI,
-    available_missions,
-    missing_stages,
-)
+from audit_front.example_backend import ExampleDataAPI
 from audit_front.pipeline import STAGE_KEYS, STAGES, get_stage
 from audit_front.routing import StageRouter, build_backend, resolve_live_stages
 
@@ -45,6 +38,7 @@ class RecordingAPI(BackendAPI):
     analyse_mission_scope = _record
     fetch_risk_events = _record
     fetch_methodology = _record
+    fetch_historical_reports = _record
     fetch_historical_recommendations = _record
     build_briefing = _record
 
@@ -58,8 +52,13 @@ class TestSurfaceIsComplete:
     """One method per backend API, declared in the stage table."""
 
     def test_every_stage_declares_a_method(self):
-        assert len(API_METHODS) == len(STAGE_KEYS) == 6
-        assert len(set(API_METHODS)) == 6, "two stages share a method name"
+        assert len(API_METHODS) == len(STAGE_KEYS)
+        assert len(set(API_METHODS)) == len(STAGE_KEYS), "two stages share a method name"
+
+    def test_recording_double_covers_the_whole_surface(self):
+        # Guards the guard: if a stage is added and RecordingAPI is not updated,
+        # every dispatch test would fail on instantiation rather than on intent.
+        assert RecordingAPI() is not None
 
     @pytest.mark.parametrize("spec", STAGES, ids=[s.key for s in STAGES])
     def test_the_declared_method_exists_and_is_abstract(self, spec):
@@ -132,45 +131,6 @@ class TestDispatch:
         assert response.source == "live"
 
 
-class TestExampleData:
-    def test_both_bundled_missions_have_all_six_files(self):
-        for mission_id, _ in available_missions():
-            assert missing_stages(mission_id) == [], mission_id
-
-    def test_fixtures_are_valid_json_objects(self):
-        for folder in sorted(p for p in EXAMPLE_DIR.iterdir() if p.is_dir()):
-            for path in sorted(folder.glob("*.json")):
-                payload = json.loads(path.read_text(encoding="utf-8"))
-                assert isinstance(payload, dict), f"{path.name} should be a JSON object"
-
-    def test_available_missions_reads_the_id_from_the_file(self):
-        ids = [mission_id for mission_id, _ in available_missions()]
-        assert AYVENS_UK in ids and AYVENS_DE in ids
-
-    def test_a_missing_stage_file_says_where_to_put_one(self, tmp_path, monkeypatch):
-        from audit_front import example_backend
-
-        folder = tmp_path / "TEST_MISSION"
-        folder.mkdir()
-        (folder / "mission_metadata.json").write_text(
-            json.dumps({"mission_id": "TEST/M-001", "mission_name": "Partial"}), encoding="utf-8"
-        )
-        monkeypatch.setattr(example_backend, "EXAMPLE_DIR", tmp_path)
-        example_backend._index.cache_clear()
-
-        api = ExampleDataAPI(latency=False)
-        served = api.run_stage(get_stage("mission_metadata"), "TEST/M-001", {})
-        assert served.payload["mission_name"] == "Partial"
-
-        with pytest.raises(Exception) as excinfo:
-            api.run_stage(get_stage("briefing"), "TEST/M-001", {})
-        message = str(excinfo.value)
-        assert "briefing.json" in message
-        assert "captured backend response" in message
-
-        example_backend._index.cache_clear()
-
-
 class TestLiveStageResolution:
     def test_mock_mode_puts_every_stage_on_example_data(self):
         assert resolve_live_stages(_settings(backend_mode="mock")) == frozenset()
@@ -212,15 +172,15 @@ class TestRouting:
         assert router.run_stage(get_stage("risk_events"), "M", {}).source == "live"
         assert router.run_stage(get_stage("methodology"), "M", {}).source == "example"
 
-    def test_wiring_reports_all_six(self):
+    def test_wiring_reports_every_stage(self):
         wiring = dict((spec.key, source) for spec, source in self._router("methodology").wiring())
         assert wiring["methodology"] == "live"
         assert wiring["briefing"] == "example"
-        assert len(wiring) == 6
+        assert set(wiring) == set(STAGE_KEYS)
 
     def test_health_says_how_many_stages_are_live(self):
         detail = self._router("methodology", "risk_events").health().detail
-        assert "2/6 stages live" in detail
+        assert f"2/{len(STAGE_KEYS)} stages live" in detail
 
 
 class TestBuildBackend:

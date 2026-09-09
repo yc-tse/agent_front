@@ -1,6 +1,6 @@
 """Shared rendering helpers and the app's CSS.
 
-Everything visual that more than one stage needs lives here, so the six stage
+Everything visual that more than one stage needs lives here, so the stage
 modules stay about *their* content rather than about layout.
 """
 
@@ -132,7 +132,7 @@ def hitl_note(text: str) -> None:
 def empty_state(title: str, body: str) -> None:
     """A deliberate 'nothing here, and here is what that means' block.
 
-    Three of the six stages routinely return nothing. Rendering that as a
+    Several stages routinely return nothing. Rendering that as a
     blank area would read as a broken page; it is actually a result.
     """
     st.markdown(

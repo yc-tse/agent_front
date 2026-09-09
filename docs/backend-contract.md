@@ -17,13 +17,14 @@ routing differences need no code change.
 | `AUDIT_API_HEALTH_PATH` | `/health` | Reachability probe (GET) |
 | `AUDIT_API_JOB_PATH` | `/api/v1/jobs/{job_id}` | Poll an async job (GET) |
 
-`{stage}` takes one of the six keys, in pipeline order:
+`{stage}` takes one of these keys, in pipeline order:
 
 ```
 mission_metadata
 scope_understanding
 risk_events
 methodology
+historical_reports
 historical_recommendations
 briefing
 ```
@@ -69,8 +70,9 @@ Dependencies per stage:
 | `scope_understanding` | `mission_metadata` |
 | `risk_events` | `scope_understanding` |
 | `methodology` | `scope_understanding` |
+| `historical_reports` | `scope_understanding` |
 | `historical_recommendations` | `scope_understanding` |
-| `briefing` | all five |
+| `briefing` | every upstream stage |
 
 ---
 
@@ -170,6 +172,34 @@ presents as a finding rather than as an empty panel.
 Reference: `ref_id`, `title`, `version`, `url` (`link`), `summary`,
 `scope_match` (`relevance`).
 
+### `historical_reports`
+
+Prior reporting on the perimeter from any line of defence, and — the point of
+the stage — the positions IGAD has taken in it.
+
+| Field | Type | Accepts |
+|---|---|---|
+| `found` | bool | inferred from `reports` when absent |
+| `reports` | object[] | `items`, `documents`, `previous_reports`, `lod_reports` |
+| `key_messages` | string[] | `messages`, `summary` |
+| `igad_positions` | string[] | `positions`, `audit_positions` |
+| `implications` | string[] | |
+| `message` | string | `result`, `reports_result` |
+
+Report: `report_id` (`id`, `reference`), `title` (`name`), `line_of_defence`
+(`lod`, `line`), `issuer` (`author`, `issued_by`, `function`), `mission_ref`
+(`assignment`), `entity`, `published_date` (`date`, `issue_date`),
+`period_covered` (`period`), `rating` (`opinion`, `conclusion`), `scope_match`
+(`relevance`), `key_messages` (`findings`, `summary`), `igad_position`
+(`position`), `status`, `url` (`link`).
+
+`line_of_defence` is free text; `3LOD`, `3rd line` and `third line` are all
+recognised as third-line for the counts. Ratings of `unsatisfactory`,
+`needs improvement`, `inadequate` or `poor` raise an adverse-position warning.
+
+`igad_positions` is the consolidated view; when it is absent the UI falls back
+to the per-report `igad_position` values, so either shape works.
+
 ### `historical_recommendations`
 
 | Field | Type | Accepts |
@@ -225,8 +255,9 @@ threading a condition through shared code.
 | 2. Mission scope understanding | `analyse_mission_scope` | ” |
 | 3. Operational risk events in scope | `fetch_risk_events` | ” |
 | 4. Methodology references | `fetch_methodology` | ” |
-| 5. Historical recommendations | `fetch_historical_recommendations` | ” |
-| 6. Consolidated pre-mission briefing | `build_briefing` | ” |
+| 5. Historical 3LOD reports | `fetch_historical_reports` | ” |
+| 6. Historical recommendations | `fetch_historical_recommendations` | ” |
+| 7. Consolidated pre-mission briefing | `build_briefing` | ” |
 
 Each live method today posts to the generic templated endpoint and carries a
 marked block showing what to replace:
@@ -274,7 +305,8 @@ A pack built partly from example data must never read as a fully live one.
 
 ### Checking a new endpoint's shape before wiring it
 
-Save a real response as `src/audit_front/example_data/<mission>/<stage>.json`
+Paste a real response into a mission file under `stages.<stage_key>` in
+`src/audit_front/example_data/<mission>.json`
 and the UI renders it immediately — no code, no redeploy. That is the quickest
 way to see whether a payload fits the models in section 4, and it doubles as a
 regression fixture afterwards.

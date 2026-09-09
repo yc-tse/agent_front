@@ -77,7 +77,7 @@ class Settings:
     live_stages: tuple[str, ...] | None = None
     """Stages wired to the real backend, or None to let ``backend_mode`` decide.
 
-    Lets the six APIs be switched on one at a time as they ship, instead of
+    Lets the stage APIs be switched on one at a time as they ship, instead of
     waiting for all of them. See :mod:`audit_front.routing`.
     """
 

@@ -109,7 +109,7 @@ class StageRun:
     source: str | None = None
     """Which backend answered — ``"live"`` or ``"example"``.
 
-    Recorded per stage because the six APIs go live at different times: a pack
+    Recorded per stage because the stage APIs go live at different times: a pack
     can legitimately mix the two, and the reader has to be able to tell.
     """
 

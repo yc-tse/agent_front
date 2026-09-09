@@ -1,6 +1,6 @@
 """Choosing, per stage, between the live backend and example data.
 
-The six backend APIs will not arrive at once. This router lets each one be
+The backend APIs will not arrive at once. This router lets each one be
 switched over the day it ships, without a branch or a redeploy: name the
 stages that are live and the rest keep serving example data.
 
@@ -48,14 +48,14 @@ class StageRouter(BackendAPI):
         return self.delegate_for(stage.key).label
 
     def wiring(self) -> list[tuple[StageSpec, str]]:
-        """(stage, source) for all six — what the Connection panel renders."""
+        """(stage, source) for every stage — what the Connection panel renders."""
         return [(get_stage(key), self.source_of(get_stage(key))) for key in STAGE_KEYS]
 
     @property
     def is_uniform(self) -> bool:
         return not self.live_stages or self.live_stages == frozenset(STAGE_KEYS)
 
-    # -- the six backend APIs ---------------------------------------------
+    # -- the backend APIs, one delegation each ----------------------------
 
     def fetch_mission_metadata(self, request: StageRequest) -> StageResponse:
         return self.delegate_for("mission_metadata").fetch_mission_metadata(request)
@@ -68,6 +68,9 @@ class StageRouter(BackendAPI):
 
     def fetch_methodology(self, request: StageRequest) -> StageResponse:
         return self.delegate_for("methodology").fetch_methodology(request)
+
+    def fetch_historical_reports(self, request: StageRequest) -> StageResponse:
+        return self.delegate_for("historical_reports").fetch_historical_reports(request)
 
     def fetch_historical_recommendations(self, request: StageRequest) -> StageResponse:
         return self.delegate_for("historical_recommendations").fetch_historical_recommendations(
@@ -103,7 +106,7 @@ def resolve_live_stages(settings: Settings) -> frozenset[str]:
     """Which stages should call the real backend.
 
     ``AUDIT_LIVE_STAGES`` wins when set; otherwise ``AUDIT_BACKEND_MODE``
-    decides for all six at once. A stage named there but not recognised is
+    decides for every stage at once. A stage named there but not recognised is
     ignored rather than fatal — a typo should not take the app down.
     """
     named = settings.live_stages

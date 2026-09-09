@@ -1,24 +1,20 @@
 """End-to-end pipeline behaviour against the mock backend.
 
 The central claim under test: an analyst edit in stage 2 really does change
-stages 3 to 6. If that ever stops holding, the human-in-the-loop story is
+every stage after it. If that ever stops holding, the human-in-the-loop story is
 decoration.
 """
 
 from __future__ import annotations
 
 import pytest
+from sample_missions import AYVENS_DE, AYVENS_UK
 
 from audit_front.client import BackendError, StageResponse
-from audit_front.example_backend import AYVENS_DE, AYVENS_UK, ExampleDataAPI
+from audit_front.example_backend import ExampleDataAPI
 from audit_front.pipeline import STAGE_KEYS, get_stage
 from audit_front.runner import run_draft_pipeline, run_stage
 from audit_front.state import MissionSession, StageStatus
-
-
-@pytest.fixture
-def client() -> ExampleDataAPI:
-    return ExampleDataAPI(latency=False)
 
 
 def _session(mission_id: str = AYVENS_UK) -> MissionSession:
@@ -137,6 +133,130 @@ class TestScopePropagation:
         run_stage(session, client, get_stage("briefing"))
         briefing = session.stage("briefing").parsed()
         assert briefing.perimeter == ["LEASEPLAN UK LIMITED"]
+
+
+class TestHistoricalReportsStage:
+    """Stage 5 sits between methodology and recommendations, and feeds the briefing."""
+
+    def test_it_runs_between_methodology_and_recommendations(self):
+        order = list(STAGE_KEYS)
+        assert order.index("methodology") < order.index("historical_reports")
+        assert order.index("historical_reports") < order.index("historical_recommendations")
+
+    def test_it_depends_on_the_validated_scope(self):
+        assert get_stage("historical_reports").depends_on == ("scope_understanding",)
+
+    def test_the_briefing_waits_for_it(self):
+        assert "historical_reports" in get_stage("briefing").depends_on
+
+    def test_reports_and_positions_come_back(self, client):
+        session = _session(AYVENS_DE)
+        _advance(session, client, "methodology")
+        run_stage(session, client, get_stage("historical_reports"))
+
+        model = session.stage("historical_reports").parsed()
+        assert model.resolved_found is True
+        assert len(model.reports) == 3
+        assert len(model.third_line_reports) == 2
+        assert any("residual-value governance" in p for p in model.resolved_positions())
+
+    def test_narrowing_the_scope_narrows_the_reports(self, client):
+        session = _session(AYVENS_DE)
+        _advance(session, client, "mission_metadata")
+        run_stage(session, client, get_stage("scope_understanding"))
+        session.apply_edit(
+            "scope_understanding",
+            {
+                **session.stage("scope_understanding").payload,
+                "entity_filter": ["ALD AUTOMOTIVE GMBH"],
+            },
+        )
+        session.approve("scope_understanding")
+
+        run_stage(session, client, get_stage("historical_reports"))
+        reports = session.stage("historical_reports").parsed().reports
+        assert {r.entity for r in reports} == {"ALD AUTOMOTIVE GMBH"}
+
+    def test_excluding_a_report_drops_the_positions_that_cite_it(self, client):
+        # The synthesis is drawn from the reports, so it must not go on quoting
+        # one that has left the perimeter.
+        session = _session(AYVENS_UK)
+        _advance(session, client, "mission_metadata")
+        run_stage(session, client, get_stage("scope_understanding"))
+        session.apply_edit(
+            "scope_understanding",
+            {
+                **session.stage("scope_understanding").payload,
+                "entity_filter": ["ALD AUTOMOTIVE LIMITED"],
+            },
+        )
+        session.approve("scope_understanding")
+
+        run_stage(session, client, get_stage("historical_reports"))
+        model = session.stage("historical_reports").parsed()
+
+        remaining = {r.report_id for r in model.reports}
+        assert "IGAD-2023-UK-0142" not in remaining
+        assert not any("IGAD-2023-UK-0142" in p for p in model.resolved_positions()), (
+            "a position cited a report that is no longer in the perimeter"
+        )
+        assert any("re-read" in i for i in model.implications)
+
+    def test_dropping_every_report_drops_the_synthesis_drawn_from_them(self, client):
+        session = _session(AYVENS_DE)
+        _advance(session, client, "mission_metadata")
+        run_stage(session, client, get_stage("scope_understanding"))
+        session.apply_edit(
+            "scope_understanding",
+            {**session.stage("scope_understanding").payload, "entity_filter": ["NOT A REAL GMBH"]},
+        )
+        session.approve("scope_understanding")
+
+        run_stage(session, client, get_stage("historical_reports"))
+        model = session.stage("historical_reports").parsed()
+        assert model.reports == []
+        assert model.resolved_positions() == []
+
+    def test_the_positions_reach_the_briefing(self, client):
+        session = _session(AYVENS_DE)
+        for key in STAGE_KEYS:
+            run_stage(session, client, get_stage(key))
+            session.approve(key)
+
+        history = session.stage("briefing").parsed().historical_context
+        joined = " ".join(history)
+        assert "IGAD positions on record" in joined
+        assert "IGAD-2023-DE-0077" in joined
+        # Recommendations still contribute too — the section carries both.
+        assert "prior recommendation(s)" in joined
+
+    def test_an_analyst_added_report_reaches_the_briefing(self, client):
+        session = _session(AYVENS_UK)
+        for key in STAGE_KEYS[:-1]:
+            run_stage(session, client, get_stage(key))
+            if key == "historical_reports":
+                payload = session.stage(key).payload
+                session.apply_edit(
+                    key,
+                    {
+                        **payload,
+                        "reports": [
+                            *payload["reports"],
+                            {
+                                "report_id": "FCA-2025-LETTER",
+                                "title": "Dear CEO letter — motor finance",
+                                "line_of_defence": "External",
+                                "issuer": "FCA",
+                                "source": "analyst",
+                            },
+                        ],
+                    },
+                )
+            session.approve(key)
+
+        run_stage(session, client, get_stage("briefing"))
+        joined = " ".join(session.stage("briefing").parsed().historical_context)
+        assert "FCA-2025-LETTER" in joined
 
 
 class TestSampleMissions:

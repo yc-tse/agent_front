@@ -44,7 +44,8 @@ A strict one-way pipeline with a human checkpoint between every step:
 
 ```
 mission_metadata ─▶ scope_understanding ─┬─▶ risk_events ──────────────┐
-                    (critical gate)      ├─▶ methodology ──────────────┼─▶ briefing
+                    (critical gate)      ├─▶ methodology ──────────────┤
+                                         ├─▶ historical_reports ───────┼─▶ briefing
                                          └─▶ historical_recommendations┘
 ```
 
@@ -62,8 +63,13 @@ on each `StageSpec` as `api_method` and dispatched by `BackendAPI.run_stage`:
 | `scope_understanding` | `analyse_mission_scope` |
 | `risk_events` | `fetch_risk_events` |
 | `methodology` | `fetch_methodology` |
+| `historical_reports` | `fetch_historical_reports` |
 | `historical_recommendations` | `fetch_historical_recommendations` |
 | `briefing` | `build_briefing` |
+
+`historical_reports` (what has already been said about this perimeter, and the
+IGAD positions taken) is deliberately separate from `historical_recommendations`
+(what was already asked for). Both feed the briefing's historical context.
 
 Read the modules in this order:
 
@@ -74,7 +80,10 @@ Read the modules in this order:
   optional, `extra="allow"`, and incoming keys normalised so `MissionName`,
   `missionName`, `mission_name` and `"Mission ID"` all land on the same field.
   A backend change should degrade the UI, never break it. `key_aliases` is
-  where you add a spelling that doesn't normalise on its own.
+  where you add a spelling that doesn't normalise on its own. List coercion is
+  derived from the annotations in `LooseModel._normalise_keys` and runs *after*
+  key mapping — don't reintroduce per-model coercion validators, which coerced
+  before the alias was resolved and so failed on `{"country": "UK"}`.
 - **`state.py`** — `MissionSession` / `StageRun` / audit trail. Two ideas carry
   the whole design: **`ai_payload` and `analyst_payload` are separate** (an
   edit never destroys what the agent said), and **editing a stage marks its
@@ -86,10 +95,16 @@ Read the modules in this order:
 - **`client.py`** — the only module that talks HTTP. Each of the six methods is
   a seam carrying a `── CONNECT THE REAL ENDPOINT HERE ──` block; all six
   currently share `post_stage()`. Also envelope unwrapping, retries, job polling.
-- **`example_backend.py`** — serves `example_data/<mission>/<stage>.json`. Not
-  decoration: it honours `request.context`, so a scope edited in stage 2 really
-  does change stages 3–6. Dropping a captured backend response into that folder
-  renders it immediately, which is the fastest way to check a new payload shape.
+- **`example_backend.py`** — scans `example_data/` and serves what it finds.
+  **One mission is one file**: `{mission_id, mission_name, stages{…}}`, keyed on
+  the id *inside* the document, so the filename is free and adding a sample
+  mission is dropping a file in. No mission is named anywhere in Python — if you
+  find yourself adding a constant for one, that is the bug. Payloads are
+  re-read per call, so editing a file while the app runs takes effect on the
+  next run; the directory scan is cached (`reload_example_data()` to re-scan).
+  Not decoration either: it honours `request.context`, so a scope edited in
+  stage 2 really does change the later stages — including re-syncing the
+  cross-report synthesis when reports leave the perimeter.
 - **`routing.py`** — per-stage live/example selection (`AUDIT_LIVE_STAGES`), so
   the six APIs can be switched over one at a time.
 - **`ui/`** — Streamlit only. `ui/stages/__init__.py` holds the frame every

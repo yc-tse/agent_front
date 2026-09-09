@@ -12,9 +12,12 @@ def _session() -> MissionSession:
 
 class TestPipelineShape:
     def test_stages_are_ordered_and_unique(self):
-        assert len(set(STAGE_KEYS)) == len(STAGE_KEYS) == 6
+        assert len(set(STAGE_KEYS)) == len(STAGE_KEYS)
         assert STAGE_KEYS[0] == "mission_metadata"
         assert STAGE_KEYS[-1] == "briefing"
+
+    def test_orders_are_contiguous_and_match_position(self):
+        assert [get_stage(k).order for k in STAGE_KEYS] == list(range(len(STAGE_KEYS)))
 
     def test_dependencies_only_point_backwards(self):
         for key in STAGE_KEYS:
@@ -31,6 +34,7 @@ class TestPipelineShape:
         assert affected == {
             "risk_events",
             "methodology",
+            "historical_reports",
             "historical_recommendations",
             "briefing",
         }

@@ -125,8 +125,8 @@ def render(session: MissionSession, run: StageRun) -> dict[str, Any]:
     draft = dict(run.payload)
     with st.expander("Review & adjust the perimeter", expanded=model.is_empty):
         st.caption(
-            "This filter set is passed verbatim to stages 3 to 6. Narrow it and those stages "
-            "return less; widen it and they return more."
+            "This filter set is passed verbatim to every stage after it. Narrow it and those "
+            "stages return less; widen it and they return more."
         )
         col_a, col_b = st.columns(2)
         with col_a:

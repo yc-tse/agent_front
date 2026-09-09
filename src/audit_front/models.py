@@ -19,7 +19,7 @@ parsing at all, which the tolerance above guarantees.
 from __future__ import annotations
 
 import re
-from typing import Any, ClassVar
+from typing import Any, ClassVar, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -38,6 +38,7 @@ _MOJIBAKE = {
     "â†’": "→",  # right arrow
     "â€¢": "•",  # bullet
 }
+
 
 def fix_mojibake(text: str) -> str:
     """Repair cp1252-decoded UTF-8 punctuation in backend strings."""
@@ -86,6 +87,23 @@ class LooseModel(BaseModel):
     # normalise onto the field name by themselves.
     key_aliases: ClassVar[dict[str, str]] = {}
 
+    @classmethod
+    def _list_coercers(cls) -> dict[str, Any]:
+        """Field name -> coercion, for every field declared as a list.
+
+        Derived from the annotations rather than hand-written per model, so a
+        new list field is tolerant the moment it is declared.
+        """
+        cached = cls.__dict__.get("_af_list_coercers")
+        if cached is None:
+            cached = {}
+            for name, field_info in cls.model_fields.items():
+                if get_origin(field_info.annotation) is list:
+                    args = get_args(field_info.annotation)
+                    cached[name] = as_str_list if args and args[0] is str else as_list
+            cls._af_list_coercers = cached  # type: ignore[attr-defined]
+        return cached
+
     @model_validator(mode="before")
     @classmethod
     def _normalise_keys(cls, data: Any) -> Any:
@@ -98,6 +116,15 @@ class LooseModel(BaseModel):
             target = by_norm.get(_norm_key(raw_key), raw_key)
             # First spelling wins; stops an alias from clobbering an exact match.
             out.setdefault(target, value)
+
+        # Coerce *after* mapping, not before. A scalar arriving under an alias
+        # (`{"country": "UNITED KINGDOM"}`, `{"analysis": "one\ntwo"}`) is only
+        # recognisable as a list field once the key has been resolved — doing
+        # this first made such payloads fail validation, which `parsed()` then
+        # swallowed into an empty model and rendered as a blank section.
+        for name, coerce in cls._list_coercers().items():
+            if name in out:
+                out[name] = coerce(out[name])
         return out
 
     def extras(self) -> dict[str, Any]:
@@ -199,18 +226,6 @@ class MissionMetadata(LooseModel):
         "businesslinesinvolved": "business_lines",
     }
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_lists(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            for key in ("countries", "entities", "risk_families", "business_lines"):
-                if key in data:
-                    data[key] = as_str_list(data[key])
-            if "activities" in data:
-                data["activities"] = as_list(data["activities"])
-        return data
-
-
 # ---------------------------------------------------------------------------
 # Stage 2 -- mission scope understanding
 # ---------------------------------------------------------------------------
@@ -220,7 +235,7 @@ class ScopeUnderstanding(LooseModel):
     """Stage 2 -- the filter set every later stage is executed against.
 
     This is the highest-value human-in-the-loop checkpoint: an over-broad or
-    under-broad entity filter silently distorts stages 3 to 6.
+    under-broad entity filter silently distorts every stage after it.
     """
 
     mission_name: str | None = None
@@ -263,15 +278,6 @@ class ScopeUnderstanding(LooseModel):
         "business_line_filter",
         "reasoning",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_lists(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            for key in ScopeUnderstanding.LIST_FIELDS:
-                if key in data:
-                    data[key] = as_str_list(data[key])
-        return data
 
     @property
     def is_empty(self) -> bool:
@@ -352,16 +358,6 @@ class RiskEvents(LooseModel):
         "comment": "interpretation",
     }
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if "events" in data:
-                data["events"] = as_list(data["events"])
-            if "interpretation" in data:
-                data["interpretation"] = as_str_list(data["interpretation"])
-        return data
-
     @property
     def resolved_count(self) -> int:
         return self.total_count if self.total_count is not None else len(self.events)
@@ -413,24 +409,151 @@ class Methodology(LooseModel):
         "methodologyresult": "message",
     }
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if "references" in data:
-                data["references"] = as_list(data["references"])
-            for key in ("implications", "recommended_approach"):
-                if key in data:
-                    data[key] = as_str_list(data[key])
-        return data
-
     @property
     def resolved_found(self) -> bool:
         return bool(self.references) if self.found is None else bool(self.found)
 
 
 # ---------------------------------------------------------------------------
-# Stage 5 -- historical recommendations
+# Stage 5 -- historical 3LOD reports
+# ---------------------------------------------------------------------------
+
+
+class ThreeLodReport(LooseModel):
+    """One report issued on this perimeter by any line of defence.
+
+    Covers 1LOD self-assessments, 2LOD reviews, 3LOD (IGAD) audit reports and
+    external/regulatory reports, because the mission will be read against all
+    of them — not only against internal audit's own back catalogue.
+    """
+
+    report_id: str | None = None
+    title: str | None = None
+    line_of_defence: str | None = None  # "1LOD" | "2LOD" | "3LOD" | "External"
+    issuer: str | None = None  # e.g. "IGAD", "Compliance UK", "FCA"
+    mission_ref: str | None = None  # the assignment that produced it
+    entity: str | None = None
+    published_date: str | None = None
+    period_covered: str | None = None
+    rating: str | None = None  # audit opinion / conclusion
+    scope_match: str | None = None  # why it is relevant here
+    key_messages: list[str] = []
+    igad_position: str | None = None  # the position IGAD took in this report
+    status: str | None = None  # "Final" | "Draft" | "Superseded"
+    url: str | None = None
+    source: str | None = None  # "backend" | "analyst" -- stamped by the front-end
+
+    key_aliases: ClassVar[dict[str, str]] = {
+        "id": "report_id",
+        "reference": "report_id",
+        "ref": "report_id",
+        "reportreference": "report_id",
+        "name": "title",
+        "label": "title",
+        "lod": "line_of_defence",
+        "line": "line_of_defence",
+        "lineofdefense": "line_of_defence",
+        "defenceline": "line_of_defence",
+        "author": "issuer",
+        "issuedby": "issuer",
+        "function": "issuer",
+        "mission": "mission_ref",
+        "missionid": "mission_ref",
+        "assignment": "mission_ref",
+        "legalentity": "entity",
+        "date": "published_date",
+        "issuedate": "published_date",
+        "publicationdate": "published_date",
+        "period": "period_covered",
+        "opinion": "rating",
+        "conclusion": "rating",
+        "relevance": "scope_match",
+        "match": "scope_match",
+        "messages": "key_messages",
+        "keymessage": "key_messages",
+        "findings": "key_messages",
+        "summary": "key_messages",
+        "igadposition": "igad_position",
+        "position": "igad_position",
+        "link": "url",
+    }
+
+    @property
+    def is_third_line(self) -> bool:
+        lod = (self.line_of_defence or "").lower().replace(" ", "")
+        return "3lod" in lod or "3rd" in lod or "thirdline" in lod
+
+
+class HistoricalReports(LooseModel):
+    """Stage 5 -- prior 3LOD reporting on the perimeter, and what it said.
+
+    The point is not the list but the positions: a mission that contradicts a
+    position IGAD took eighteen months ago needs to know that before fieldwork,
+    not at the clearance meeting.
+    """
+
+    found: bool | None = None
+    reports: list[ThreeLodReport] = []
+    key_messages: list[str] = []  # synthesis across the reports
+    igad_positions: list[str] = []  # the positions IGAD has taken
+    implications: list[str] = []
+    message: str | None = None
+
+    key_aliases: ClassVar[dict[str, str]] = {
+        "items": "reports",
+        "results": "reports",
+        "documents": "reports",
+        "historicalreports": "reports",
+        "previousreports": "reports",
+        "lodreports": "reports",
+        "threelodreports": "reports",
+        "messages": "key_messages",
+        "summary": "key_messages",
+        "keymessagesummary": "key_messages",
+        "positions": "igad_positions",
+        "igadposition": "igad_positions",
+        "auditpositions": "igad_positions",
+        "reportsresult": "message",
+        "result": "message",
+    }
+
+    LIST_FIELDS: ClassVar[tuple[str, ...]] = (
+        "key_messages",
+        "igad_positions",
+        "implications",
+    )
+
+    @property
+    def resolved_found(self) -> bool:
+        return bool(self.reports) if self.found is None else bool(self.found)
+
+    @property
+    def third_line_reports(self) -> list[ThreeLodReport]:
+        return [report for report in self.reports if report.is_third_line]
+
+    @property
+    def lines_covered(self) -> list[str]:
+        """Distinct lines of defence represented, in a stable order."""
+        seen: list[str] = []
+        for report in self.reports:
+            line = (report.line_of_defence or "Unspecified").strip()
+            if line not in seen:
+                seen.append(line)
+        return seen
+
+    def resolved_positions(self) -> list[str]:
+        """Stage-level IGAD positions, falling back to the per-report ones."""
+        if self.igad_positions:
+            return list(self.igad_positions)
+        return [
+            f"{report.report_id or report.title or 'Report'}: {report.igad_position}"
+            for report in self.reports
+            if report.igad_position
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Stage 6 -- historical recommendations
 # ---------------------------------------------------------------------------
 
 
@@ -466,7 +589,7 @@ class Recommendation(LooseModel):
 
 
 class HistoricalRecommendations(LooseModel):
-    """Stage 5 -- open/closed recommendations touching the perimeter."""
+    """Stage 6 -- open/closed recommendations touching the perimeter."""
 
     found: bool | None = None
     recommendations: list[Recommendation] = []
@@ -482,16 +605,6 @@ class HistoricalRecommendations(LooseModel):
         "result": "message",
     }
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if "recommendations" in data:
-                data["recommendations"] = as_list(data["recommendations"])
-            if "implications" in data:
-                data["implications"] = as_str_list(data["implications"])
-        return data
-
     @property
     def resolved_found(self) -> bool:
         return bool(self.recommendations) if self.found is None else bool(self.found)
@@ -503,7 +616,7 @@ class HistoricalRecommendations(LooseModel):
 
 
 # ---------------------------------------------------------------------------
-# Stage 6 -- consolidated pre-mission briefing
+# Stage 7 -- consolidated pre-mission briefing
 # ---------------------------------------------------------------------------
 
 
@@ -522,16 +635,15 @@ class ThematicAxis(LooseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce(cls, data: Any) -> Any:
+    def _accept_plain_string(cls, data: Any) -> Any:
+        """A bare string is the axis title; lists are coerced by the base class."""
         if isinstance(data, str):
             return {"title": fix_mojibake(data)}
-        if isinstance(data, dict) and "points" in data:
-            data["points"] = as_str_list(data["points"])
         return data
 
 
 class Briefing(LooseModel):
-    """Stage 6 -- the deliverable the audit team actually walks in with."""
+    """Stage 7 -- the deliverable the audit team actually walks in with."""
 
     objective: str | None = None
     perimeter: list[str] = []
@@ -573,13 +685,8 @@ class Briefing(LooseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce(cls, data: Any) -> Any:
-        if isinstance(data, str):  # backend returned raw markdown only
+    def _accept_plain_markdown(cls, data: Any) -> Any:
+        """A bare string is a rendered briefing; lists are coerced by the base class."""
+        if isinstance(data, str):
             return {"markdown": fix_mojibake(data)}
-        if isinstance(data, dict):
-            for key in Briefing.LIST_FIELDS:
-                if key in data:
-                    data[key] = as_str_list(data[key])
-            if "thematic_axes" in data:
-                data["thematic_axes"] = as_list(data["thematic_axes"])
         return data

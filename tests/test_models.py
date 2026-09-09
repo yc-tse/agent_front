@@ -6,6 +6,7 @@ from audit_front.models import (
     ActivityNode,
     Briefing,
     HistoricalRecommendations,
+    HistoricalReports,
     Methodology,
     MissionMetadata,
     RiskEvents,
@@ -64,6 +65,7 @@ class TestTolerance:
             RiskEvents,
             Methodology,
             HistoricalRecommendations,
+            HistoricalReports,
             Briefing,
         ):
             assert model_cls() is not None
@@ -85,6 +87,46 @@ class TestTolerance:
     def test_briefing_accepts_bare_markdown(self):
         model = Briefing.model_validate("# Briefing\n\nSome text")
         assert model.markdown.startswith("# Briefing")
+
+
+class TestAliasedListsAreCoerced:
+    """Regression: coercion has to happen *after* the key is resolved.
+
+    Per-model validators used to coerce before the base class renamed the key,
+    so a scalar arriving under an alias failed validation — and `parsed()`
+    swallowed that into an empty model, rendering a blank section rather than
+    the data the backend actually sent.
+    """
+
+    def test_scalar_under_an_alias(self):
+        assert MissionMetadata.model_validate({"country": "UNITED KINGDOM"}).countries == [
+            "UNITED KINGDOM"
+        ]
+
+    def test_newline_string_under_an_alias(self):
+        model = RiskEvents.model_validate({"analysis": "first\nsecond"})
+        assert model.interpretation == ["first", "second"]
+
+    def test_approach_alias_on_methodology(self):
+        model = Methodology.model_validate({"approach": "do this\nthen that"})
+        assert model.recommended_approach == ["do this", "then that"]
+
+    def test_empty_dict_under_an_alias_means_no_records(self):
+        assert HistoricalRecommendations.model_validate({"items": {}}).recommendations == []
+
+    def test_positions_alias_on_reports(self):
+        model = HistoricalReports.model_validate({"positions": "one position"})
+        assert model.igad_positions == ["one position"]
+
+    def test_briefing_axes_under_an_alias(self):
+        model = Briefing.model_validate({"themes": "Asset risk"})
+        assert [axis.title for axis in model.thematic_axes] == ["Asset risk"]
+
+    def test_coercion_is_derived_from_the_annotations(self):
+        # Every declared list field is covered, so a newly added one is tolerant
+        # without anyone remembering to write a validator for it.
+        coercers = HistoricalReports._list_coercers()
+        assert set(coercers) == {"reports", "key_messages", "igad_positions", "implications"}
 
 
 class TestMojibake:
@@ -134,6 +176,85 @@ class TestDerivedProperties:
         assert Methodology().resolved_found is False
         # An explicit flag overrides the inference.
         assert Methodology(found=False, references=[{"title": "X"}]).resolved_found is False
+
+    def test_reports_found_infers_from_the_list(self):
+        assert HistoricalReports(reports=[{"title": "X"}]).resolved_found is True
+        assert HistoricalReports().resolved_found is False
+
+    def test_third_line_reports_are_identified_by_their_line(self):
+        model = HistoricalReports.model_validate(
+            {
+                "reports": [
+                    {"report_id": "A", "line_of_defence": "3LOD"},
+                    {"report_id": "B", "line_of_defence": "2LOD"},
+                    {"report_id": "C", "line_of_defence": "3rd line"},
+                    {"report_id": "D"},
+                ]
+            }
+        )
+        assert [r.report_id for r in model.third_line_reports] == ["A", "C"]
+
+    def test_lines_covered_is_distinct_and_ordered(self):
+        model = HistoricalReports.model_validate(
+            {
+                "reports": [
+                    {"line_of_defence": "3LOD"},
+                    {"line_of_defence": "2LOD"},
+                    {"line_of_defence": "3LOD"},
+                    {},
+                ]
+            }
+        )
+        assert model.lines_covered == ["3LOD", "2LOD", "Unspecified"]
+
+    def test_positions_fall_back_to_the_per_report_ones(self):
+        model = HistoricalReports.model_validate(
+            {
+                "reports": [
+                    {"report_id": "IGAD-1", "igad_position": "framework unsatisfactory"},
+                    {"report_id": "IGAD-2"},
+                ]
+            }
+        )
+        assert model.resolved_positions() == ["IGAD-1: framework unsatisfactory"]
+
+    def test_stage_level_positions_win_over_the_per_report_ones(self):
+        model = HistoricalReports.model_validate(
+            {
+                "igad_positions": ["the consolidated position"],
+                "reports": [{"report_id": "IGAD-1", "igad_position": "per-report"}],
+            }
+        )
+        assert model.resolved_positions() == ["the consolidated position"]
+
+    def test_report_key_spellings_are_absorbed(self):
+        model = HistoricalReports.model_validate(
+            {
+                "items": [
+                    {
+                        "id": "IGAD-2023-UK-0142",
+                        "name": "Financial crime framework",
+                        "lod": "3LOD",
+                        "issuedBy": "IGAD",
+                        "publicationDate": "2023-11-17",
+                        "opinion": "Needs improvement",
+                        "findings": "first point\nsecond point",
+                        "position": "the position taken",
+                    }
+                ],
+                "positions": "a single position",
+            }
+        )
+        report = model.reports[0]
+        assert report.report_id == "IGAD-2023-UK-0142"
+        assert report.title == "Financial crime framework"
+        assert report.line_of_defence == "3LOD"
+        assert report.issuer == "IGAD"
+        assert report.published_date == "2023-11-17"
+        assert report.rating == "Needs improvement"
+        assert report.key_messages == ["first point", "second point"]
+        assert report.igad_position == "the position taken"
+        assert model.igad_positions == ["a single position"]
 
     def test_open_items_excludes_closed_statuses(self):
         model = HistoricalRecommendations.model_validate(

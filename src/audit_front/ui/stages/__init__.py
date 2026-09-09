@@ -3,8 +3,8 @@
 Each stage module exposes ``render(session, run) -> dict`` which draws the
 stage's content plus its editors and returns the *draft payload* — the payload
 as the analyst has it on screen right now. The frame here owns everything the
-six have in common: the header, the run/retry states, the review bar and the
-raw-payload escape hatch.
+stage views have in common: the header, the run/retry states, the review bar and
+the raw-payload escape hatch.
 """
 
 from __future__ import annotations
@@ -29,7 +29,15 @@ from ..common import (
     warnings_block,
 )
 from ..hitl import review_bar
-from . import briefing, methodology, mission_metadata, recommendations, risk_events, scope
+from . import (
+    briefing,
+    methodology,
+    mission_metadata,
+    recommendations,
+    reports,
+    risk_events,
+    scope,
+)
 
 Renderer = Callable[[MissionSession, Any], dict[str, Any]]
 
@@ -38,6 +46,7 @@ RENDERERS: dict[str, Renderer] = {
     "scope_understanding": scope.render,
     "risk_events": risk_events.render,
     "methodology": methodology.render,
+    "historical_reports": reports.render,
     "historical_recommendations": recommendations.render,
     "briefing": briefing.render,
 }

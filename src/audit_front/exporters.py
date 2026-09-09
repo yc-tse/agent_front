@@ -2,7 +2,7 @@
 
 Two formats, two purposes:
 
-* **Markdown** — the readable deliverable, laid out in the same six sections
+* **Markdown** — the readable deliverable, laid out in the same sections
   as the agent's own output so it is recognisable to anyone who has seen the
   raw run, plus a provenance appendix.
 * **JSON** — the complete record: every AI payload, every analyst override,
@@ -19,6 +19,7 @@ from typing import Any
 from .models import (
     Briefing,
     HistoricalRecommendations,
+    HistoricalReports,
     Methodology,
     MissionMetadata,
     RiskEvents,
@@ -184,6 +185,53 @@ def _methodology_md(model: Methodology) -> list[str]:
     return lines
 
 
+def _reports_md(model: HistoricalReports) -> list[str]:
+    lines: list[str] = []
+    if model.message:
+        lines.append(f"- **Result:** {model.message}")
+    elif not model.resolved_found:
+        lines.append("- **Result:** no prior 3LOD report found on this perimeter.")
+
+    if model.reports:
+        lines += [
+            "",
+            "| Ref | Title | Line | Issuer | Entity | Published | Rating | Source |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        row = "| {ref} | {title} | {line} | {issuer} | {entity} | {date} | {rating} | {src} |"
+        for report in model.reports:
+            lines.append(
+                row.format(
+                    ref=report.report_id or "—",
+                    title=report.title or "—",
+                    line=report.line_of_defence or "—",
+                    issuer=report.issuer or "—",
+                    entity=report.entity or "—",
+                    date=report.published_date or "—",
+                    rating=report.rating or "—",
+                    src=report.source or "backend",
+                )
+            )
+
+    positions = model.resolved_positions()
+    if positions:
+        # The positions come before the per-report detail: they are what the
+        # mission has to live with, and what a reader needs first.
+        lines += ["", "**IGAD positions:**", *_bullets(positions)]
+    if model.key_messages:
+        lines += ["", "**Key messages across the reports:**", *_bullets(model.key_messages)]
+
+    for report in model.reports:
+        if not report.key_messages:
+            continue
+        header = " — ".join(p for p in (report.report_id, report.title) if p) or "Report"
+        lines += ["", f"**{header}**", *_bullets(report.key_messages)]
+
+    if model.implications:
+        lines += ["", "**Implications:**", *_bullets(model.implications)]
+    return lines
+
+
 def _recommendations_md(model: HistoricalRecommendations) -> list[str]:
     lines: list[str] = []
     if model.message:
@@ -255,6 +303,7 @@ _RENDERERS = {
     "scope_understanding": _scope_md,
     "risk_events": _risk_events_md,
     "methodology": _methodology_md,
+    "historical_reports": _reports_md,
     "historical_recommendations": _recommendations_md,
     "briefing": _briefing_md,
 }
