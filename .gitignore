@@ -10,3 +10,4 @@ venv/
 dist/
 build/
 exports/
+/src/audit_front/example_data
